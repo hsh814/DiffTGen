@@ -7,6 +7,10 @@ import re
 
 ROOTDIR = "/root/project/DiffTGen"
 
+def get_cn(line: str) -> int:
+  ln = line.strip()
+  return line.find(ln)
+
 def get_diff(file_original: str, file_patched: str) -> List[int]:
   with open(file_original, "r") as fo, open(file_patched, "r") as fp:
     original_contents = fo.readlines()
@@ -14,6 +18,11 @@ def get_diff(file_original: str, file_patched: str) -> List[int]:
     diff = difflib.unified_diff(original_contents, patched_contents, n=0)
     index = 0
     diff_str = ""
+    original_line = 0
+    original_range = 1
+    patched_line = 0
+    patched_range = 1
+    delta = list()
     for line in diff:
       print(line)
       index += 1
@@ -23,21 +32,39 @@ def get_diff(file_original: str, file_patched: str) -> List[int]:
         before = tokens[1].split(",")
         original_line = int(before[0])
         if original_line < 0:
-          original_line = -original_line
-        rg = 1
+          original_line = -1 * original_line
         if len(before) > 1:
-          rg = int(before[1])
+          original_range = int(before[1])
         after = tokens[2].split(",")
         patched_line = int(after[0])
-      elif index > 3:
-        if line.startswith("+"):
-          pass
-        elif line.startswith("-"):
-          pass
-        pass
+        if len(after) > 1:
+          patched_range = int(after[1])
+        break
+      elif index > 3 and index < 3 + original_range:
+        print("Original line")
+        line_num = original_line + index - 4
+        cn = get_cn(original_contents[line_num - 1])
+        delta.append(f"{file_original}:{line_num},{cn}")
+      elif index >= 3 + original_range:
+        print("Patched line")
+        line_num = patched_line + index - 4 - original_range
+        cn = get_cn(patched_contents[line_num - 1])
+        delta.append(f"{file_patched}:{line_num},{cn}")
     # Print the numbers
-    # print(numbers)
-    # return numbers
+    if original_range == 0:
+      cn = get_cn(original_contents[original_line - 1])
+      delta.append(f"null({file_original}:{original_line},{cn};after)")
+    else:
+      cn = get_cn(original_contents[original_line - 1])
+      delta.append(f"{file_original}:{original_line},{cn}")
+    if patched_range == 0:
+      cn = get_cn(patched_contents[patched_line - 1])
+      delta.append(f"null({file_patched}:{patched_line},{cn};before)")
+    else:
+      cn = get_cn(patched_contents[patched_line - 1])
+      delta.append(f"{file_patched}:{patched_line},{cn}")
+    print(delta)
+    return delta
   return [0,0,0,0]
 
 def init_d4j(bugid: str, loc: str) -> None:
@@ -63,16 +90,21 @@ def run(conf_file: str) -> None:
       init_d4j(bugid, d4j_dir)
     
     print(f"Correct patch {id}")
-    get_diff(original_file, os.path.join(basedir, location))
-    return
+    delta = get_diff(original_file, os.path.join(basedir, location))
+    os.makedirs(os.path.join(ROOTDIR, "patch", "test", bugid), exist_ok=True)
+    with open(os.path.join(ROOTDIR, "patch", "test", bugid, f"oracle-{id}.txt"), "w") as f:
+      for d in delta:
+        f.write(d + "\n")
     for plau in plau_patch_list:
       print("===============================================")
       original_file = os.path.join(d4j_dir, plau["file"])
       id = plau["id"]
       location = plau["location"]
       print(f"Patch {id}")
-      get_diff(original_file, os.path.join(basedir, location)) 
-
+      delta = get_diff(original_file, os.path.join(basedir, location)) 
+      with open(os.path.join(ROOTDIR, "patch", "test", bugid, f"delta-{id}.txt"), "w") as f:
+        for d in delta:
+          f.write(d + "\n")
 
 def main(args: List[str]) -> None:
   if len(args) == 1:
