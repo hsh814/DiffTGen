@@ -1,5 +1,8 @@
 #!/bin/bash
 
-proj_dir=./ #To be CUSTOMIZED (in its absolute path)
+#To be CUSTOMIZED (in its absolute path)
+proj_dir=/root/project/DiffTGen 
 
-java -cp :${proj_dir}/lib/*:${proj_dir}/build testgen.Main $*
+evosuite_path=${proj_dir}/lib/evosuite-1.0.2.jar
+# Run DiffTGen
+java -cp :${proj_dir}/lib/*:${proj_dir}/build testgen.Main -evosuitejpath ${evosuite_path} $*
