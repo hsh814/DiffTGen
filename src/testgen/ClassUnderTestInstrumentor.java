@@ -80,7 +80,7 @@ public class ClassUnderTestInstrumentor
 	return getInstrumentedClass(1, fpath, mlocs);
     }
 
-    public InstrumentedClass getInstrumentedClass(int ic_type, String fpath, List<String> mlocs) {
+		public InstrumentedClass getInstrumentedClass(int ic_type, String fpath, List<String> mlocs) {
 	File f = new File(fpath);
 	String fctnt = null;
 	try { fctnt = FileUtils.readFileToString(f, (String) null); }

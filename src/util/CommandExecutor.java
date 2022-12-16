@@ -11,7 +11,7 @@ public class CommandExecutor
     
     public static int execute(String[] cmds, File exec_d, File output_f) {
 
-	ProcessBuilder pb = new ProcessBuilder(cmds);
+	ProcessBuilder pb = new ProcessBuilder().inheritIO().command(cmds);
 	pb.directory(exec_d);
 	//Redirect the running output to summary file
 	if (output_f != null) { pb.redirectOutput(output_f); }

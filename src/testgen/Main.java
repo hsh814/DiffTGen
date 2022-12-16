@@ -413,8 +413,13 @@ public class Main
 	while (mod_map_fp_it.hasNext()) {
 	    Map.Entry<String, List<String>> entry = (Map.Entry<String, List<String>>) mod_map_fp_it.next();
 	    String fppath = entry.getKey();
-	    List<String> fpmlocs = entry.getValue();
-	    InstrumentedClass fp_oic = cftg.getOutputInstrumentedClass(fppath, fpmlocs);
+			List<String> tmpmlocs = entry.getValue();
+			List<String> fpmlocs = new ArrayList<String>();
+			for (String fpmloc : tmpmlocs) {
+				String mloc = ASTHelper.getMethodLoc(fppath, fpmloc);
+				fpmlocs.add(mloc);
+			}
+			InstrumentedClass fp_oic = cftg.getOutputInstrumentedClass(fppath, fpmlocs);
 	    InstrumentedClass fp_tcic = cftg.getTestCaseInstrumentedClass(fppath, fpmlocs);
 	    String fp_oic_fpath = fp_instru0_dpath+"/"+fp_oic.getClassName()+".java";
 	    String fp_oic_fctnt = fp_oic.getInstrumentedClassContent();
@@ -473,8 +478,13 @@ public class Main
 		    t.printStackTrace();
 		}
 	    }
-	    else {
-		InstrumentedClass cp_oic = cftg.getOutputInstrumentedClass(cppath, cpmlocs);
+			else {
+				List<String> cpmlocs2 = new ArrayList<String>();
+				for (String cpmloc : cpmlocs) {
+					String mloc = ASTHelper.getMethodLoc(cppath, cpmloc);
+					cpmlocs2.add(mloc);
+				}
+		InstrumentedClass cp_oic = cftg.getOutputInstrumentedClass(cppath, cpmlocs2);
 		String cp_oic_fpath = cp_instru0_dpath+"/"+cp_oic.getClassName()+".java";
 		String cp_oic_fctnt = cp_oic.getInstrumentedClassContent();
 		if (cp_oic_fctnt != null) {
