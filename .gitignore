@@ -6,3 +6,6 @@ d4j/
 output/
 patch/
 out/
+temp-*/
+log/
+*.tar.gz

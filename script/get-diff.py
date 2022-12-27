@@ -70,14 +70,22 @@ def get_diff(file_original: str, file_patched: str) -> List[int]:
 def init_d4j(bugid: str, loc: str) -> None:
   proj, bid = bugid.split("-")
   os.system(f"defects4j checkout -p {proj} -v {bid}b -w {loc}")
+  os.system(f"defects4j compile -w {loc}")
+  os.system(f"defects4j export -p dir.bin.classes -w {loc} -o {loc}/builddir.txt")
+  with open(f"{loc}/builddir.txt", 'r') as f:
+    origianl_dir = os.getcwd()
+    builddir = f.read().strip()
+    tmp_dir = os.path.join(loc, builddir)
+    os.chdir(tmp_dir)
+    os.system(f"jar -cf {loc}/{bugid}.jar .")
+    os.chdir(origianl_dir)
 
 
-def run(conf_file: str) -> None:
+
+def run(basedir: str, conf_file: str) -> None:
   with open(conf_file, 'r') as c:
     conf = json.load(c)
     bugid: str = conf["bugid"]
-    proj = bugid.split("-")[0].lower()
-    basedir = os.path.join(ROOTDIR, "patch", proj, bugid)
     plau_patch_list = conf["plausible_patches"]
     d4j_dir = os.path.join(ROOTDIR, "d4j", bugid)
 
@@ -90,9 +98,10 @@ def run(conf_file: str) -> None:
       init_d4j(bugid, d4j_dir)
     
     print(f"Correct patch {id}")
-    delta = get_diff(original_file, os.path.join(basedir, location))
-    os.makedirs(os.path.join(ROOTDIR, "patch", "test", bugid), exist_ok=True)
-    with open(os.path.join(ROOTDIR, "patch", "test", bugid, f"oracle-{id}.txt"), "w") as f:
+    patched_file = os.path.join(basedir, bugid, location)
+    delta = get_diff(original_file, patched_file)
+    # os.makedirs(os.path.join(ROOTDIR, "output", "recoder", bugid), exist_ok=True)
+    with open(os.path.join(os.path.dirname(patched_file), "delta.txt"), "w") as f:
       for d in delta:
         f.write(d + "\n")
     for plau in plau_patch_list:
@@ -101,8 +110,9 @@ def run(conf_file: str) -> None:
       id = plau["id"]
       location = plau["location"]
       print(f"Patch {id}")
-      delta = get_diff(original_file, os.path.join(basedir, location)) 
-      with open(os.path.join(ROOTDIR, "patch", "test", bugid, f"delta-{id}.txt"), "w") as f:
+      patched_file = os.path.join(basedir, bugid, location)
+      delta = get_diff(original_file, patched_file) 
+      with open(os.path.join(os.path.dirname(patched_file), "delta.txt"), "w") as f:
         for d in delta:
           f.write(d + "\n")
 
@@ -110,7 +120,11 @@ def main(args: List[str]) -> None:
   if len(args) == 1:
     run(os.path.join(ROOTDIR, "patch", "test", "chart-3.json"))
   elif len(args) == 2:
-    run(args[1])
+    basedir = args[1]
+    for bugid in os.listdir(basedir):
+      dir = os.path.join(basedir, bugid)
+      if os.path.isdir(dir):
+        run(basedir, os.path.join(dir, f"{bugid}.json"))
   elif len(args) > 2:
     if args[1] != "compare":
       print("Usage: python3 find-line.py <conf_file>")
