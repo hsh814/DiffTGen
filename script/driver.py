@@ -182,7 +182,7 @@ def run(basedir: str, conf_file: str) -> List[List[str]]:
     
     print(f"Correct patch {id}")
     patched_file = os.path.join(basedir, bugid, location)
-    correct_delta_file = os.path.join(os.path.dirname(patched_file), "delta.txt")
+
     for plau in plau_patch_list:
       print("===============================================")
       original_file = os.path.join(d4j_dir, plau["file"])
@@ -192,7 +192,8 @@ def run(basedir: str, conf_file: str) -> List[List[str]]:
       patched_file = os.path.join(basedir, bugid, location)
       deltas = get_diff(original_file, patched_file, correct_original_file)
       delta_file = os.path.join(os.path.dirname(patched_file), "delta.txt")
-      write_deltas(deltas, delta_file, correct_delta_file)
+      oracle_file = os.path.join(os.path.dirname(patched_file), "oracle.txt")
+      write_deltas(deltas, delta_file, oracle_file)
       deps = os.path.join(d4j_dir, "cp.txt")
       if not os.path.exists(deps):
         subprocess.run(["defects4j", "export", "-p", "cp.compile", "-o", deps, "-w", d4j_dir])
@@ -205,7 +206,7 @@ def run(basedir: str, conf_file: str) -> List[List[str]]:
       cmd = ["./run", "-bugid", bugid, "-repairtool", tool+id, 
         "-dependjpath", cp,
         "-outputdpath", os.path.join(ROOTDIR, "out", tool),
-        "-inputfpath", delta_file, "-oracleinputfpath", correct_delta_file,
+        "-inputfpath", delta_file, "-oracleinputfpath", oracle_file,
         "-stopifoverfittingfound", "-evosuitetimeout", "120", "-runparallel"
       ]
       cmd_list.append(cmd)

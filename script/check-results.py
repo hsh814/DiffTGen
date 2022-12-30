@@ -26,6 +26,8 @@ def main(args: list) -> None:
   total_incorrect = 0
   total = 0
   for dir in dirs:
+    if not os.path.isdir(os.path.join(outdir, dir)):
+      continue
     bugid = dir.split("_")[0]
     if bugid not in results:
       results[bugid] = list()

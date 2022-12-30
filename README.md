@@ -30,6 +30,35 @@ Run `ant compile` to compile all the source files.
   * `-runparallel`: do you want to run the trials in parallel?
   * `-stopifoverfittingfound`: do you want to stop running if an overfitting-indicative is found?
 
+
+### Inputs
+
+bugid: should use dash for separator. (`Chart-1`)
+tool: tool name
+patch notation: 
+- id: used as part of the path, so should not include `/`.
+- location: location of the patch
+- file: which file is modified
+
+#### Example - patches/recoder/Chart-1
+```
+├── 28
+│   ├── 1
+│   │   ├── AbstractCategoryItemRenderer.java
+│   │   └── delta.txt
+│   └── 10
+│       ├── AbstractCategoryItemRenderer.java
+│       ├── delta.txt
+│       └── oracle.txt
+├── 29
+│   └── 36
+│       ├── AbstractCategoryItemRenderer.java
+│       ├── delta.txt
+│       └── oracle.txt
+└── Chart-1.json
+```
+
+
 ### How to Create an Input File
 
 The input file encodes a list of syntactic deltas between the faulty program and the patched program. For each delta, you write two lines in the file with the first line representing the modified statement in the faulty program and second representing the modified statement in the patched program. So in the file, the first two lines encode the first delta, the second two lines encode the second delta, and so on.

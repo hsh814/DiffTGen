@@ -225,7 +225,8 @@ public class ClassUnderTestInstrumentor
 	    String mloc = mlocs.get(i);
 	    //===============
 	    //System.err.println("mloc in classundertestinstrumentor: " + mloc);
-	    //===============	    
+		//===============	    
+	    if (mloc == null) { continue; }
 	    ASTNode mnode = ASTNodeFinder.find(cu, mloc).get(0);
 	    if (!(mnode instanceof MethodDeclaration)) {
 		System.err.println("Located Node is NOT a method.");
