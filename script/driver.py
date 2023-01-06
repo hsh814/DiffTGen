@@ -209,6 +209,8 @@ def run(basedir: str, conf_file: str) -> List[List[str]]:
         "-inputfpath", delta_file, "-oracleinputfpath", oracle_file,
         "-stopifoverfittingfound", "-evosuitetimeout", "120", "-runparallel"
       ]
+      if original_file != patched_file:
+        continue
       cmd_list.append(cmd)
       # execute(cmd)
     return cmd_list

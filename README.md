@@ -57,6 +57,14 @@ patch notation:
 │       └── oracle.txt
 └── Chart-1.json
 ```
+[Chart-1.json](./Chart-1.json) is the example file.
+
+You can use `script/extract-candidates.py` to extract and collect plausible patches.
+
+You can use `script/driver.py` to run the `difftgen`.
+```shell
+python3 script/driver.py patches/recoder
+```
 
 
 ### How to Create an Input File
