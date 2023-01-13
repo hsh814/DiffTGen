@@ -138,10 +138,11 @@ def main_tbar(args):
   rootdir = args[1]
   outdir = args[2]
   for bugid in os.listdir(os.path.join(rootdir, "d4j")):
+    print(bugid)
     bugid_recoder = bugid.replace("_", "-")
     os.makedirs(f"{outdir}/{bugid_recoder}", exist_ok=True)
     switch_info_file = os.path.join(rootdir, "d4j", bugid, "switch-info.json")
-    sim_file = os.path.join(rootdir, "sim", bugid, f"{bugid}-sim.json")
+    sim_file = os.path.join(rootdir, "../experiment", ".cache-tbar", f"{bugid}-cache.json")
     with open(switch_info_file, "r") as swf, open(sim_file, "r") as sf:
       sw = json.load(swf)
       sim = json.load(sf)
@@ -153,7 +154,7 @@ def main_tbar(args):
       plau_patches = list()
       result["plausible_patches"] = plau_patches
       for file_info in sw["rules"]:
-        file_name = file_info["file"]
+        file_name = file_info["file_name"]
         for line_info in file_info["lines"]:
           for case_info in line_info["switches"]:
             loc = case_info["location"]
@@ -174,4 +175,5 @@ def main_tbar(args):
 
 
 if __name__ == "__main__":
-  main_recoder(sys.argv)
+  main_tbar(sys.argv)
+  # main_recoder(sys.argv)
