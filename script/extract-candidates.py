@@ -143,6 +143,9 @@ def main_tbar(args):
     os.makedirs(f"{outdir}/{bugid_recoder}", exist_ok=True)
     switch_info_file = os.path.join(rootdir, "d4j", bugid, "switch-info.json")
     sim_file = os.path.join(rootdir, "../experiment", ".cache-tbar", f"{bugid}-cache.json")
+    if not os.path.exists(sim_file):
+      print(f"SKIP {bugid} - {sim_file} not exists")
+      continue
     with open(switch_info_file, "r") as swf, open(sim_file, "r") as sf:
       sw = json.load(swf)
       sim = json.load(sf)
@@ -166,9 +169,11 @@ def main_tbar(args):
               plau_patches.append(patch_info)
       with open(f"{outdir}/{bugid_recoder}/{bugid_recoder}.json", "w") as f:
         json.dump(result, f, indent=2)
+      if len(plau_patches) > 0:
+        print(f"{bugid}: found {len(plau_patches)} plausible patches")
       for plau in plau_list:
-        original = os.path.join(rootdir, "d4j", bugid, plau)
-        target = os.path.join(outdir, bugid_recoder, plau)
+        original = os.path.join(rootdir, "d4j", bugid) + "/" + plau
+        target = os.path.join(outdir, bugid_recoder) + "/" + plau
         os.makedirs(os.path.dirname(target), exist_ok=True)
         os.system(f"cp {original} {target}")
 
