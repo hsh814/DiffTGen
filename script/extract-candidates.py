@@ -85,9 +85,11 @@ def get_correct_patch_recoder(correct_patch_file: str) -> List[str]:
 
 def collect_plausible_recoder(rootdir: str, outdir: str) -> None:
   for bugid in os.listdir(os.path.join(rootdir, "d4j")):
-    os.makedirs(f"{outdir}/{bugid}", exist_ok=True)
+    # os.makedirs(f"{outdir}/{bugid}", exist_ok=True)
     switch_info_file = os.path.join(rootdir, "d4j", bugid, "switch-info.json")
     sim_file = os.path.join(rootdir, "sim", bugid, f"{bugid}-sim.json")
+    if os.path.exists(sim_file) == False:
+      continue
     with open(switch_info_file, "r") as swf, open(sim_file, "r") as sf:
       sw = json.load(swf)
       sim = json.load(sf)
@@ -108,9 +110,18 @@ def collect_plausible_recoder(rootdir: str, outdir: str) -> None:
             patch_info = {"id": id, "location": loc, "file": file_name, "line": line_info["line"]}
             if loc in plau_list:
               plau_patches.append(patch_info)
+      if len(plau_list) == 0:
+        continue
+      print(bugid)
+      os.makedirs(f"{outdir}/{bugid}", exist_ok=True)
       with open(f"{outdir}/{bugid}/{bugid}.json", "w") as f:
         json.dump(result, f, indent=2)
-      
+      for plau in plau_list:
+        original = os.path.join(rootdir, "d4j", bugid, plau)
+        target = os.path.join(outdir, bugid, plau)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        os.system(f"cp {original} {target}")
+        
 def main_recoder(args: List[str]) -> None:
   rootdir = args[1]
   outdir = args[2]
@@ -180,5 +191,6 @@ def main_tbar(args):
 
 
 if __name__ == "__main__":
-  main_tbar(sys.argv)
+  # main_tbar(sys.argv)
   # main_recoder(sys.argv)
+  collect_plausible_recoder(sys.argv[1], sys.argv[2])
