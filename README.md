@@ -64,6 +64,19 @@ You can use `script/driver.py` to run the `difftgen`.
 python3 script/driver.py recoder /root/Recoder patches/recoder
 ```
 
+Default location of `DiffTGen` is at `/root/DiffTGen`.
+
+If you want to change the location, fix code in `run` and `script/driver.py`
+
+```
+# run
+proj_dir= <new location>
+```
+
+```
+# script/driver.py
+ROOTDIR = <new location>
+```
 
 ### How to Create an Input File
 

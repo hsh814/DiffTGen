@@ -10,7 +10,7 @@ import multiprocessing as mp
 import javalang
 import javalang.tree
 
-ROOTDIR = "/root/project/DiffTGen"
+ROOTDIR = "/root/DiffTGen"
 manager = mp.Manager()
 global_cmd_queue = manager.Queue()
 
@@ -271,26 +271,38 @@ def get_groundtruth(bugid: str, d4j_dir: str) -> list:
   proj, bid = bugid.split("-")
   files = set()
   line_nums = list()
-  run_cmd(["defects4j", "export", "-p", "dir.src.classes", "-o", f"{d4j_dir}/srcdir.txt"], d4j_dir)
-  with open(f"{d4j_dir}/srcdir.txt", 'r') as f:
-    srcdir = f.read().strip()
-  with open(os.path.join(ROOTDIR, "groundtruth", proj.lower(), bid), "r") as f:
+  # run_cmd(["defects4j", "export", "-p", "dir.src.classes", "-o", f"{d4j_dir}/srcdir.txt"], d4j_dir)
+  # with open(f"{d4j_dir}/srcdir.txt", 'r') as f:
+  #   srcdir = f.read().strip()
+  with open(os.path.join(ROOTDIR, "groundtruth.txt"), "r") as f:
     lines = f.readlines()
+    file = ""
+    line_nums = list()
     for line in lines:
-      line = line.strip().split("||")[0]
+      line = line.strip()
       if len(line) == 0:
         continue
-      line_num = line.split(":")[1]
-      line_nums.append(int(line_num))
-      if '$' in line:
-        java = line.split("$")[0]
-      else:
-        rindex = line.rfind(".")
-        java = line[:rindex]
-      file = java.replace(".", "/") + ".java"
-      files.add(srcdir + "/" + file)
-  print(files)
-  return list(files), line_nums
+      tmp_bugid = line.split("@")[0]
+      if tmp_bugid == proj + "_" + bid:
+        file = line.split("@")[1]
+        for line_num in line.split("@")[2].split(","):
+          if '-' in line_num:
+            line_nums.append(int(line_num.split("-")[0]))
+          else:
+            line_nums.append(int(line_num))
+        break
+    line_set = set()
+    final_line_nums = list()
+    if len(line_nums) > 1:
+      line_nums.sort()
+      for line_num in line_nums:
+        mrng = get_method_range(os.path.join(ROOTDIR, "d4j", bugid, file), line_num)
+        line_str = f'{mrng["begin"]}:{mrng["end"]}'
+        if line_str not in line_set:
+          line_set.add(line_str)
+          final_line_nums.append(mrng["begin"])
+  print(f"Groundtruth: {file} {final_line_nums}")
+  return file, final_line_nums
 
 def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
   with open(conf_file, 'r') as c:
@@ -305,12 +317,9 @@ def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
     os.makedirs(os.path.join(ROOTDIR, "d4j"), exist_ok=True)
     # init_d4j(bugid, d4j_dir, False)
     # init_d4j(bugid, d4j_fixed_dir, True)
-    correct_files, line_nums = get_groundtruth(bugid, d4j_dir)
-    if len(correct_files) > 1:
-      print("More than one correct file!!!")
-      return cmd_list
-    correct_file = os.path.join(d4j_fixed_dir, correct_files[0])
-    correct_original_file = os.path.join(d4j_dir, correct_files[0])
+    correct_file, line_nums = get_groundtruth(bugid, d4j_dir)
+    correct_file = os.path.join(d4j_fixed_dir, correct_file)
+    correct_original_file = os.path.join(d4j_dir, correct_file)
     print(f"Correct file: {correct_file}")
     # correct_original_file_ = os.path.join(d4j_dir, correct[0])
     # correct_file = os.path.join(d4j_fixed_dir, correct[0])
