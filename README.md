@@ -45,25 +45,23 @@ patch notation:
 ├── 28
 │   ├── 1
 │   │   ├── AbstractCategoryItemRenderer.java
-│   │   └── delta.txt
 │   └── 10
-│       ├── AbstractCategoryItemRenderer.java
-│       ├── delta.txt
-│       └── oracle.txt
+│       └── AbstractCategoryItemRenderer.java
 ├── 29
 │   └── 36
-│       ├── AbstractCategoryItemRenderer.java
-│       ├── delta.txt
-│       └── oracle.txt
+│       └── AbstractCategoryItemRenderer.java
 └── Chart-1.json
 ```
 [Chart-1.json](./Chart-1.json) is the example file.
 
 You can use `script/extract-candidates.py` to extract and collect plausible patches.
+```shell
+python3 script/extract-candidates.py recoder /root/Recoder patches/recoder
+```
 
 You can use `script/driver.py` to run the `difftgen`.
 ```shell
-python3 script/driver.py patches/recoder
+python3 script/driver.py recoder /root/Recoder patches/recoder
 ```
 
 

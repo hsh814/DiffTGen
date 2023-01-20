@@ -193,4 +193,12 @@ def main_tbar(args):
 if __name__ == "__main__":
   # main_tbar(sys.argv)
   # main_recoder(sys.argv)
-  collect_plausible_recoder(sys.argv[1], sys.argv[2])
+  if len(sys.argv) < 4:
+    print("Usage: python3 extract-candidates.py <tool> <rootdir> <outdir>")
+    print("ex) python3 script/extract-candidates.py recoder /root/Recoder ./patches/recoder")
+    exit(1)
+  cmd = sys.argv[1]
+  if cmd in ["recoder", "alpharepair"]:
+    collect_plausible_recoder(sys.argv[2], sys.argv[3])
+  elif cmd in ["tbar", "avatar", "kpar", "fixminer"]:
+    main_tbar(sys.argv[2], sys.argv[3])

@@ -118,7 +118,7 @@ def get_diff_line(file_original: str, file_patched: str) -> list:
       diff_content += line
     return [original_line, original_range, patched_line, patched_range, diff_content]
 
-def get_diff(file_original: str, file_patched: str, file_original_oracle: str) -> None:
+def get_diff(file_original: str, file_patched: str, file_original_oracle: str, file_patched_oracle: str, line_nums: list) -> None:
   with open(file_original, "r") as fo, open(file_patched, "r") as fp:
     original_contents = fo.readlines()
     patched_contents = fp.readlines()
@@ -174,10 +174,13 @@ def get_diff(file_original: str, file_patched: str, file_original_oracle: str) -
 
     # Oracle
     delta_oracle = list()
-    cn = get_cn(original_contents[original_line - 1])
-    if file_original != file_original_oracle:
-      delta_oracle.append(f"null({file_original_oracle})")
-    delta_oracle.append(f"{file_original}:{original_line},{cn}")
+    with open(file_patched_oracle, "r") as fpo:
+      oracle_contents = fpo.readlines()
+    if os.path.abspath(file_original) != os.path.abspath(file_original_oracle):
+      delta_oracle.append(f"null({file_patched_oracle})")
+    for line_num in line_nums:
+      cn = get_cn(oracle_contents[line_num - 1])
+      delta_oracle.append(f"{file_patched_oracle}:{line_num},{cn}")
     return delta, delta_oracle
   return [0,0,0,0]
 
@@ -197,11 +200,12 @@ def run_cmd(cmd: List[str], cwd: str) -> bool:
 def unzip_jar(cwd: str, jar_file: str) -> None:
   run_cmd(["jar", "-xf", jar_file], cwd)
 
-def init_d4j(bugid: str, loc: str) -> None:
+def init_d4j(bugid: str, loc: str, fixed = False) -> None:
   proj, bid = bugid.split("-")
   print(f"Checkout {bugid}")
   run_cmd(["rm", "-rf", loc], ROOTDIR)
-  run_cmd(["defects4j", "checkout", "-p", proj, "-v", bid + "b", "-w", loc], ROOTDIR)
+  version = bid + "f" if fixed else bid + "b"
+  run_cmd(["defects4j", "checkout", "-p", proj, "-v", version, "-w", loc], ROOTDIR)
   # os.system(f"defects4j checkout -p {proj} -v {bid}b -w {loc}")
   print(f"Compile {bugid}")
   run_cmd(["defects4j", "compile"], loc)
@@ -252,7 +256,7 @@ def filter_bugid(bugid: str) -> bool:
     "Closure-63", "Closure-93",
     "Time-21", "Lang-2"
   }
-  # return bugid != "Chart-1"
+  return bugid != "Lang-32"
   return bugid in bids
 
 def write_deltas(deltas: Tuple[List[str], List[str]], patch_file: str, oracle_file: str) -> None:
@@ -262,6 +266,89 @@ def write_deltas(deltas: Tuple[List[str], List[str]], patch_file: str, oracle_fi
   with open(patch_file, 'w') as p:
     for d in deltas[0]:
       p.write(d + "\n")
+
+def get_groundtruth(bugid: str, d4j_dir: str) -> list:
+  proj, bid = bugid.split("-")
+  files = set()
+  line_nums = list()
+  run_cmd(["defects4j", "export", "-p", "dir.src.classes", "-o", f"{d4j_dir}/srcdir.txt"], d4j_dir)
+  with open(f"{d4j_dir}/srcdir.txt", 'r') as f:
+    srcdir = f.read().strip()
+  with open(os.path.join(ROOTDIR, "groundtruth", proj.lower(), bid), "r") as f:
+    lines = f.readlines()
+    for line in lines:
+      line = line.strip().split("||")[0]
+      if len(line) == 0:
+        continue
+      line_num = line.split(":")[1]
+      line_nums.append(int(line_num))
+      if '$' in line:
+        java = line.split("$")[0]
+      else:
+        rindex = line.rfind(".")
+        java = line[:rindex]
+      file = java.replace(".", "/") + ".java"
+      files.add(srcdir + "/" + file)
+  print(files)
+  return list(files), line_nums
+
+def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
+  with open(conf_file, 'r') as c:
+    cmd_list = list()
+    conf: dict = json.load(c)
+    bugid: str = conf["bugid"]
+    if filter_bugid(bugid):
+      return cmd_list
+    plau_patch_list = conf["plausible_patches"]
+    d4j_dir = os.path.join(ROOTDIR, "d4j", bugid)
+    d4j_fixed_dir = os.path.join(ROOTDIR, "d4j", bugid + "f")
+    os.makedirs(os.path.join(ROOTDIR, "d4j"), exist_ok=True)
+    # init_d4j(bugid, d4j_dir, False)
+    # init_d4j(bugid, d4j_fixed_dir, True)
+    correct_files, line_nums = get_groundtruth(bugid, d4j_dir)
+    if len(correct_files) > 1:
+      print("More than one correct file!!!")
+      return cmd_list
+    correct_file = os.path.join(d4j_fixed_dir, correct_files[0])
+    correct_original_file = os.path.join(d4j_dir, correct_files[0])
+    print(f"Correct file: {correct_file}")
+    # correct_original_file_ = os.path.join(d4j_dir, correct[0])
+    # correct_file = os.path.join(d4j_fixed_dir, correct[0])
+    # correct_patched_file = os.path.join(basedir, bugid, location)
+    # # oracle_delta = get_diff_line(correct_original_file, correct_patched_file)
+    # oracle_method_range = get_method_range(correct_original_file, oracle_delta[0])
+    for plau in plau_patch_list:
+      print("===============================================")
+      original_file = f'{d4j_dir}/{plau["file"]}'
+      id = plau["id"]
+      location = plau["location"]
+      print(f"Patch {id}")
+      patched_file = os.path.join(basedir, bugid) + "/" + location
+      deltas = get_diff(original_file, patched_file, correct_original_file, correct_file, line_nums)
+      delta_file = os.path.join(os.path.dirname(patched_file), "delta.txt")
+      oracle_file = os.path.join(os.path.dirname(patched_file), "oracle.txt")
+      write_deltas(deltas, delta_file, oracle_file)
+      deps = os.path.join(d4j_dir, "cp.txt")
+      if not os.path.exists(deps):
+        subprocess.run(["defects4j", "export", "-p", "cp.compile", "-o", deps, "-w", d4j_dir])
+      cp = os.path.join(d4j_dir, bugid + "-with-deps.jar")
+      # with open(deps, 'r') as d:
+      #   lines = d.read().strip().split(":")
+      #   for line in lines:
+      #     if line.endswith(".jar"):
+      #       cp += f":{line}"
+      cmd = ["./run", "-bugid", bugid, "-repairtool", id, 
+        "-dependjpath", cp,
+        "-outputdpath", os.path.join(ROOTDIR, "out", tool),
+        "-inputfpath", delta_file, "-oracleinputfpath", oracle_file,
+        "-stopifoverfittingfound", "-evosuitetimeout", "120", "-runparallel"
+      ]
+      patched_delta = get_diff_line(original_file, patched_file)
+      patched_line = patched_delta[0]
+      plau["diff"] = patched_delta[4]
+      cmd_list.append(cmd)
+    return cmd_list
+
 
 def run(basedir: str, conf_file: str) -> List[List[str]]:
   with open(conf_file, 'r') as c:
@@ -377,28 +464,24 @@ def sort_bugids(bugids: List[str]) -> List[str]:
             result.append(f"{proj}-{id}")
     return result
 
-def main(args: List[str]) -> None:
-  if len(args) == 1:
-    run(os.path.join(ROOTDIR, "patch", "test", "chart-3.json"))
-  elif len(args) == 2:
-    basedir = args[1]
-    basedir = os.path.abspath(basedir)
-    cmd_list = list()
-    for bugid in sort_bugids(os.listdir(basedir)):
-      dir = os.path.join(basedir, bugid)
-      if os.path.isdir(dir):
-        result = run(basedir, os.path.join(dir, f"{bugid}.json"))
-        cmd_list.extend(result)
-    pool = mp.Pool(processes=16)
-    pool.map(execute, cmd_list)
-    pool.close()
-    pool.join()
-  elif len(args) > 2:
-    if args[1] != "compare":
-      print("Usage: python3 find-line.py <conf_file>")
-      return
-    else:
-      get_diff(args[2], args[3])
+def main(tool: str, patchdir: str) -> None:
+  basedir = os.path.abspath(patchdir)
+  cmd_list = list()
+  for bugid in sort_bugids(os.listdir(basedir)):
+    dir = os.path.join(basedir, bugid)
+    if os.path.isdir(dir):
+      result = prepare(basedir, os.path.join(dir, f"{bugid}.json"), tool)
+      cmd_list.extend(result)
+  pool = mp.Pool(processes=16)
+  pool.map(execute, cmd_list)
+  pool.close()
+  pool.join()
+
 
 if __name__ == "__main__":
-  main(sys.argv)
+  if len(sys.argv) < 3:
+    print("Usage: python3 driver.py <tool> <patchdir>")
+    exit(1)
+  cmd = sys.argv[1]
+  # cmd in ["recoder", "alpharepair", "avatar", "tbar", "kpar", "fixminer"]:
+  main(cmd, sys.argv[2])
