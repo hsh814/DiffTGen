@@ -256,7 +256,7 @@ def filter_bugid(bugid: str) -> bool:
     "Closure-63", "Closure-93",
     "Time-21", "Lang-2"
   }
-  return bugid != "Lang-32"
+  # return bugid != "Lang-32"
   return bugid in bids
 
 def write_deltas(deltas: Tuple[List[str], List[str]], patch_file: str, oracle_file: str) -> None:
