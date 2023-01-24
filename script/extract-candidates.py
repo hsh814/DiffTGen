@@ -171,7 +171,11 @@ def main_tbar(rootdir,outdir,tool):
       for file_info in sw["rules"]:
         file_name = file_info["file_name"]
         for line_info in file_info["lines"]:
-          for case_info in line_info["switches"]:
+          if "switches" in line_info:
+            patches=line_info['switches']
+          else:
+            patches=line_info['cases']
+          for case_info in patches:
             loc = case_info["location"]
             tokens = loc.split("/")
             id = loc.replace(tokens[-1], "")
