@@ -460,7 +460,9 @@ def patch_to_str(patch) -> str:
 def sort_bugids(bugids: List[str]) -> List[str]:
     proj_dict = dict()
     for bugid in bugids:
-        proj, id = bugid.split("-")
+        splitted = bugid.split("-")
+        proj=splitted[0]
+        id=splitted[-1]
         if proj not in proj_dict:
             proj_dict[proj] = list()
         proj_dict[proj].append(int(id))
