@@ -461,6 +461,8 @@ def sort_bugids(bugids: List[str]) -> List[str]:
     proj_dict = dict()
     for bugid in bugids:
         splitted = bugid.split("-")
+        if len(splitted)==1:
+            splitted=bugid.split('_')
         proj=splitted[0]
         id=splitted[-1]
         if proj not in proj_dict:
