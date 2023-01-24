@@ -150,7 +150,10 @@ def main_tbar(rootdir,outdir,tool):
     print(bugid)
     bugid_recoder = bugid.replace("_", "-")
     os.makedirs(f"{outdir}/{bugid_recoder}", exist_ok=True)
-    switch_info_file = os.path.join(rootdir, "d4j", bugid, "switch-info.json")
+    if tool=='fixminer':
+      switch_info_file = os.path.join(rootdir, "d4j", bugid, "0","switch-info.json")
+    else:
+      switch_info_file = os.path.join(rootdir, "d4j", bugid, "switch-info.json")
     sim_file = os.path.join(rootdir, "../experiment", f".cache-{tool}", f"{bugid}-cache.json")
     if not os.path.exists(sim_file):
       print(f"SKIP {bugid} - {sim_file} not exists")
