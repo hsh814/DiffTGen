@@ -202,8 +202,6 @@ def unzip_jar(cwd: str, jar_file: str) -> None:
 
 def init_d4j(bugid: str, loc: str, fixed = False) -> None:
   proj, bid = bugid.split("-")
-  if int(bid) > 1000:
-    bid = bid[:-3]
   print(f"Checkout {bugid}")
   run_cmd(["rm", "-rf", loc], ROOTDIR)
   version = bid + "f" if fixed else bid + "b"
@@ -315,16 +313,16 @@ def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
     bugid: str = conf["bugid"]
     if filter_bugid(bugid):
       return cmd_list
+    ods_dir = os.path.join(ROOTDIR, "ods", tool)
+    os.makedirs(ods_dir, exist_ok=True)
     plau_patch_list = conf["plausible_patches"]
-    d4j_dir = os.path.join(ROOTDIR, "d4j", bugid)
+    d4j_dir = os.path.join("/root/alpha-repair", "buggy", bugid)
     d4j_fixed_dir = os.path.join(ROOTDIR, "d4j", bugid + "f")
     os.makedirs(os.path.join(ROOTDIR, "d4j"), exist_ok=True)
-    init_d4j(bugid, d4j_dir, False)
-    init_d4j(bugid, d4j_fixed_dir, True)
-    correct_file, line_nums = get_groundtruth(bugid, d4j_dir)
-    correct_file = os.path.join(d4j_fixed_dir, correct_file)
-    correct_original_file = os.path.join(d4j_dir, correct_file)
-    print(f"Correct file: {correct_file}")
+    # correct_file, line_nums = get_groundtruth(bugid, d4j_dir)
+    # correct_file = os.path.join(d4j_fixed_dir, correct_file)
+    # correct_original_file = os.path.join(d4j_dir, correct_file)
+    # print(f"Correct file: {correct_file}")
     # correct_original_file_ = os.path.join(d4j_dir, correct[0])
     # correct_file = os.path.join(d4j_fixed_dir, correct[0])
     # correct_patched_file = os.path.join(basedir, bugid, location)
@@ -337,128 +335,15 @@ def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
       location = plau["location"]
       print(f"Patch {id}")
       patched_file = os.path.join(basedir, bugid) + "/" + location
-      deltas = get_diff(original_file, patched_file, correct_original_file, correct_file, line_nums)
-      delta_file = os.path.join(os.path.dirname(patched_file), "delta.txt")
-      oracle_file = os.path.join(os.path.dirname(patched_file), "oracle.txt")
-      write_deltas(deltas, delta_file, oracle_file)
-      deps = os.path.join(d4j_dir, "cp.txt")
-      if not os.path.exists(deps):
-        subprocess.run(["defects4j", "export", "-p", "cp.compile", "-o", deps, "-w", d4j_dir])
-      cp = os.path.join(d4j_dir, bugid + "-with-deps.jar")
-      # with open(deps, 'r') as d:
-      #   lines = d.read().strip().split(":")
-      #   for line in lines:
-      #     if line.endswith(".jar"):
-      #       cp += f":{line}"
-      cmd = ["./run", "-bugid", bugid, "-repairtool", id, 
-        "-dependjpath", cp,
-        "-outputdpath", os.path.join(ROOTDIR, "out", tool),
-        "-inputfpath", delta_file, "-oracleinputfpath", oracle_file,
-        "-stopifoverfittingfound", "-evosuitetimeout", "120", "-runparallel"
-      ]
-      patched_delta = get_diff_line(original_file, patched_file)
-      patched_line = patched_delta[0]
-      plau["diff"] = patched_delta[4]
-      cmd_list.append(cmd)
+      name = os.path.basename(location)
+      name = name.replace(".java", "")
+      new_file_s = os.path.join(ods_dir, f"{bugid}-{id}", name, f"{bugid}-{id}_{name}_s.java")
+      new_file_t = os.path.join(ods_dir, f"{bugid}-{id}", name, f"{bugid}-{id}_{name}_t.java")
+      os.makedirs(os.path.join(ods_dir, f"{bugid}-{id}", name,), exist_ok=True)
+      os.system(f"cp {original_file} {new_file_s}")
+      os.system(f"cp {patched_file} {new_file_t}")
+ 
     return cmd_list
-
-
-def run(basedir: str, conf_file: str) -> List[List[str]]:
-  with open(conf_file, 'r') as c:
-    cmd_list = list()
-    conf: dict = json.load(c)
-    conf_new = conf.copy()
-    conf_new["same_method"] = list()
-    conf_new["same_file"] = list()
-    conf_new["diff_file"] = list()
-    bugid: str = conf["bugid"]
-    if filter_bugid(bugid):
-      return cmd_list
-    tool = conf["tool"]
-    plau_patch_list = conf["plausible_patches"]
-    d4j_dir = os.path.join(ROOTDIR, "d4j", bugid)
-    os.makedirs(os.path.join(ROOTDIR, "d4j"), exist_ok=True)
-    correct_patch = conf["correct_patch"]
-    id = correct_patch["id"]
-    location = correct_patch["location"]
-    correct_original_file = os.path.join(d4j_dir, correct_patch["file"])
-    if not os.path.exists(correct_original_file):
-      init_d4j(bugid, d4j_dir)
-    
-    print(f"Correct patch {id}")
-    correct_patched_file = os.path.join(basedir, bugid, location)
-    oracle_delta = get_diff_line(correct_original_file, correct_patched_file)
-    oracle_method_range = get_method_range(correct_original_file, oracle_delta[0])
-    conf_new["method"] = oracle_method_range
-    correct_method_start = oracle_method_range["begin"]
-    correct_method_end = oracle_method_range["end"]
-    conf_new["plausible_patches"] = None
-    conf_new["correct_patch"]["diff"] = oracle_delta[4]
-    for plau in plau_patch_list:
-      print("===============================================")
-      original_file = os.path.join(d4j_dir, plau["file"])
-      id = plau["id"]
-      location = plau["location"]
-      print(f"Patch {id}")
-      patched_file = os.path.join(basedir, bugid, location)
-      deltas = get_diff(original_file, patched_file, correct_original_file)
-      delta_file = os.path.join(os.path.dirname(patched_file), "delta.txt")
-      oracle_file = os.path.join(os.path.dirname(patched_file), "oracle.txt")
-      write_deltas(deltas, delta_file, oracle_file)
-      deps = os.path.join(d4j_dir, "cp.txt")
-      if not os.path.exists(deps):
-        subprocess.run(["defects4j", "export", "-p", "cp.compile", "-o", deps, "-w", d4j_dir])
-      cp = os.path.join(d4j_dir, bugid + "-with-deps.jar")
-      # with open(deps, 'r') as d:
-      #   lines = d.read().strip().split(":")
-      #   for line in lines:
-      #     if line.endswith(".jar"):
-      #       cp += f":{line}"
-      cmd = ["./run", "-bugid", bugid, "-repairtool", tool+id, 
-        "-dependjpath", cp,
-        "-outputdpath", os.path.join(ROOTDIR, "out", tool),
-        "-inputfpath", delta_file, "-oracleinputfpath", oracle_file,
-        "-stopifoverfittingfound", "-evosuitetimeout", "120", "-runparallel"
-      ]
-      patched_delta = get_diff_line(original_file, patched_file)
-      patched_line = patched_delta[0]
-      plau["diff"] = patched_delta[4]
-      if original_file != correct_original_file:
-        conf_new["diff_file"].append(plau)
-        continue
-      if patched_line < correct_method_start or patched_line > correct_method_end:
-        conf_new["same_file"].append(plau)
-        continue
-      cmd_list.append(cmd)
-      conf_new["same_method"].append(plau)
-      # execute(cmd)
-    conf_file_new = conf_file.replace(".json", "-new.txt")
-    with open(conf_file_new, 'w') as cn:
-      cn.write(f'bugid: {conf_new["bugid"]}\n')
-      cn.write(f'tool: {conf_new["tool"]}\n')
-      cn.write(f'correct_patch: {patch_to_str(conf_new["correct_patch"])}\n')
-      cn.write(f'========same_method: {len(conf_new["same_method"])}\n')
-      for patch in conf_new["same_method"]:
-        cn.write(patch_to_str(patch))
-      cn.write(f'========same_file: {len(conf_new["same_file"])}\n')
-      for patch in conf_new["same_file"]:
-        cn.write(patch_to_str(patch))
-      cn.write(f'========diff_file: {len(conf_new["diff_file"])}\n')
-      for patch in conf_new["diff_file"]:
-        cn.write(patch_to_str(patch))
-    conf_file_json = conf_file.replace(".json", "-new.json")
-    with open(conf_file_json, "w") as cf:
-      json.dump(conf_new, cf, indent=2)
-    return cmd_list
-
-def patch_to_str(patch) -> str:
-  result = "#######################\n"
-  result += f'id: {patch["id"]}\n'
-  result += f'location:  {patch["location"]}\n'
-  result += f'file: {patch["file"]}\n'
-  result += f'diff: {patch["diff"]}\n'
-  result += "#########################\n"
-  return result
 
 
 def sort_bugids(bugids: List[str]) -> List[str]:
