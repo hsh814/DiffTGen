@@ -1,7 +1,8 @@
 import os
 import sys
+import json
 
-ROOTDIR = "/root/project/DiffTGen"
+ROOTDIR = "/root/DiffTGen"
 
 def sort_bugids(bugids):
     proj_dict = dict()
@@ -20,34 +21,59 @@ def sort_bugids(bugids):
     return result
 
 def main(args: list) -> None:
-  outdir = args[1]
-  dirs = os.listdir(outdir)
-  results = dict()
-  total_incorrect = 0
-  total = 0
-  for dir in dirs:
-    if not os.path.isdir(os.path.join(outdir, dir)):
-      continue
-    bugid = dir.split("_")[0]
-    if bugid not in results:
-      results[bugid] = list()
-    caseid = dir.replace(bugid, "", 1)
-    testcasedir = os.path.join(outdir, dir, 'testcase')
-    total += 1
-    if len(os.listdir(testcasedir)) == 0:
-      results[bugid].append({"id": caseid, "incorrect": False})
-    else:
-      total_incorrect += 1
-      results[bugid].append({"id": caseid, "incorrect": True})
-  print(f"TOTAL {total_incorrect} / {total}")
-  bugids = results.keys()
+  if len(args) < 3:
+    print("Usage: python3 check-results.py <tool> <patchdir>")
+    print("Ex) python3 check-results.py recoder ./patches/recoder")
+    return
+  tot = 0
+  filtered = 0
+  tool = args[1]
+  basedir = args[2]
+  outdir = os.path.join(ROOTDIR, "out",tool)
+  bugids = list()
+  bugmap = dict()
+  for bugid in sort_bugids(os.listdir(basedir)):
+    dir = os.path.join(basedir, bugid)
+    if os.path.isdir(dir):
+      bugids.append(bugid)
+      bugmap[bugid] = list()
+      bug_json = os.path.join(dir, f"{bugid}.json")
+      if not os.path.isfile(bug_json):
+        print(f"Missing {bug_json}")
+        return
+      with open(bug_json, "r") as f:
+        bugj = json.load(f)
+      for patch in bugj["plausible_patches"]:
+        tot += 1
+        patchid = patch["id"]
+        patchloc = patch["location"]
+        out_id = f"{bugid}_{patchid}"
+        out_id_dir = os.path.join(outdir, out_id, "testcase")
+        if not os.path.isdir(out_id_dir):
+          print(f"Missing {out_id_dir}")
+          continue
+        if len(os.listdir(out_id_dir)) == 0:
+          print(f"Empty {out_id_dir}")
+          bugmap[bugid].append({"id": patchid, "location": patchloc})
+        else:
+          print(f"Incorrect {out_id_dir}")
+          filtered += 1
+        
+  bugids = bugmap.keys()
   bugids = sort_bugids(bugids)
   csv_content = list()
   for bugid in bugids:
-    for testcase in results[bugid]:
-      csv_content.append(f"{bugid},{testcase['id']},{testcase['incorrect']}\n")
-  with open(outdir + "/out.csv", "w") as f:
+    line = f"{bugid},"
+    for testcase in bugmap[bugid]:
+      if tool in {'recoder', 'alpharepair'}:
+        line += f"{testcase['id']},"
+      else:
+        line += f"{testcase['location']},"
+    line = line[:-1]
+    csv_content.append(line + "\n")
+  with open(os.path.join(ROOTDIR, "out", f"{tool}.csv"), "w") as f:
     f.writelines(csv_content) 
+  print(f"Total: {tot}, Filtered: {filtered}")
 
 if __name__ == "__main__":
   main(sys.argv)
