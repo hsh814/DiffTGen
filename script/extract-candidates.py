@@ -145,15 +145,16 @@ def main_recoder(args: List[str]) -> None:
       os.makedirs(os.path.dirname(target), exist_ok=True)
       os.system(f"cp {original} {target}")
 
-def main_tbar(args):
-  rootdir = args[1]
-  outdir = args[2]
+def main_tbar(rootdir,outdir,tool):
   for bugid in os.listdir(os.path.join(rootdir, "d4j")):
     print(bugid)
     bugid_recoder = bugid.replace("_", "-")
     os.makedirs(f"{outdir}/{bugid_recoder}", exist_ok=True)
-    switch_info_file = os.path.join(rootdir, "d4j", bugid, "switch-info.json")
-    sim_file = os.path.join(rootdir, "../experiment", ".cache-tbar", f"{bugid}-cache.json")
+    if tool=='fixminer':
+      switch_info_file = os.path.join(rootdir, "d4j", bugid, "0","switch-info.json")
+    else:
+      switch_info_file = os.path.join(rootdir, "d4j", bugid, "switch-info.json")
+    sim_file = os.path.join(rootdir, "../experiment", f".cache-{tool}", f"{bugid}-cache.json")
     if not os.path.exists(sim_file):
       print(f"SKIP {bugid} - {sim_file} not exists")
       continue
@@ -163,14 +164,18 @@ def main_tbar(args):
       plau_list = get_plausible(sim)
       result = dict()
       result["bugid"] = bugid_recoder
-      result["tool"] = "tbar"
+      result["tool"] = tool
       result["correct_patch"] = dict()
       plau_patches = list()
       result["plausible_patches"] = plau_patches
       for file_info in sw["rules"]:
         file_name = file_info["file_name"]
         for line_info in file_info["lines"]:
-          for case_info in line_info["switches"]:
+          if "switches" in line_info:
+            patches=line_info['switches']
+          else:
+            patches=line_info['cases']
+          for case_info in patches:
             loc = case_info["location"]
             tokens = loc.split("/")
             id = loc.replace(tokens[-1], "")
@@ -201,4 +206,4 @@ if __name__ == "__main__":
   if cmd in ["recoder", "alpharepair"]:
     collect_plausible_recoder(sys.argv[2], sys.argv[3])
   elif cmd in ["tbar", "avatar", "kpar", "fixminer"]:
-    main_tbar(sys.argv[2], sys.argv[3])
+    main_tbar(sys.argv[2], sys.argv[3],cmd)
