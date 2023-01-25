@@ -286,6 +286,8 @@ def get_groundtruth(bugid: str, d4j_dir: str) -> list:
       if tmp_bugid == proj + "_" + bid:
         file = line.split("@")[1]
         for line_num in line.split("@")[2].split(","):
+          if len(line_num) == 0:
+            continue
           if '-' in line_num:
             line_nums.append(int(line_num.split("-")[0]))
           else:
