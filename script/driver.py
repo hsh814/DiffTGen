@@ -309,6 +309,8 @@ def get_groundtruth(bugid: str, d4j_dir: str) -> list:
   return file, final_line_nums
 
 def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
+  if not os.path.exists(conf_file):
+    return list()
   with open(conf_file, 'r') as c:
     cmd_list = list()
     conf: dict = json.load(c)
