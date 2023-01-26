@@ -271,6 +271,8 @@ def write_deltas(deltas: Tuple[List[str], List[str]], patch_file: str, oracle_fi
 
 def get_groundtruth(bugid: str, d4j_dir: str) -> list:
   proj, bid = bugid.split("-")
+  if int(bid) > 1000:
+    bid = bid[:-3]
   files = set()
   line_nums = list()
   # run_cmd(["defects4j", "export", "-p", "dir.src.classes", "-o", f"{d4j_dir}/srcdir.txt"], d4j_dir)
