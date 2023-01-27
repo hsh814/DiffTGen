@@ -35,7 +35,7 @@ def get_end_line(node: javalang.tree.Node, lineid: int) -> int:
 def get_method_range(filename: str, lineid: int) -> dict:
     method_range = dict()
     found_method = False
-    with open(filename, "r") as f:
+    with open(filename, "r", encoding="utf-8", errors="ignore") as f:
         target = f.read()
         tokens = javalang.tokenizer.tokenize(target)
         parser = javalang.parser.Parser(tokens)
@@ -73,7 +73,7 @@ def get_cn(line: str) -> int:
   return line.find(ln)
 
 def get_diff_line(file_original: str, file_patched: str) -> list:
-  with open(file_original, "r") as fo, open(file_patched, "r") as fp:
+  with open(file_original, "r", encoding="utf-8", errors="ignore") as fo, open(file_patched, "r", encoding="utf-8", errors="ignore") as fp:
     original_contents = fo.readlines()
     patched_contents = fp.readlines()
     diff = difflib.unified_diff(original_contents, patched_contents, n=0)
@@ -119,7 +119,7 @@ def get_diff_line(file_original: str, file_patched: str) -> list:
     return [original_line, original_range, patched_line, patched_range, diff_content]
 
 def get_diff(file_original: str, file_patched: str, file_original_oracle: str, file_patched_oracle: str, line_nums: list) -> None:
-  with open(file_original, "r") as fo, open(file_patched, "r") as fp:
+  with open(file_original, "r", encoding="utf-8", errors="ignore") as fo, open(file_patched, "r", encoding="utf-8", errors="ignore") as fp:
     original_contents = fo.readlines()
     patched_contents = fp.readlines()
     diff = difflib.unified_diff(original_contents, patched_contents, n=0)
