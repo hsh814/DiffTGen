@@ -360,7 +360,7 @@ def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
         "-dependjpath", cp,
         "-outputdpath", os.path.join(ROOTDIR, "out", tool),
         "-inputfpath", delta_file, "-oracleinputfpath", oracle_file,
-        "-stopifoverfittingfound", "-evosuitetimeout", "120", "-runparallel"
+        "-stopifoverfittingfound", "-evosuitetimeout", "120" #, "-runparallel"
       ]
       patched_delta = get_diff_line(original_file, patched_file)
       patched_line = patched_delta[0]
