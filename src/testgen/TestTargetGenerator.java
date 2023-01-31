@@ -114,7 +114,10 @@ public class TestTargetGenerator
 	    //Insertion
 	    if (fp_loc == null && pp_loc != null) {
 		ASTNode pp_node = ASTNodeFinder.find(pp_cu, pp_loc).get(0);
-		if (pp_node == null) { continue; }
+		if (pp_node == null) { 
+			System.err.println("pp_node is null.");
+			continue; 
+		}
 		if (pp_node instanceof IfStatement) {
 		    IfStatement pp_ifstmt = (IfStatement) pp_node;
 		    if (pp_ifstmt.getElseStatement() == null) { //Partial

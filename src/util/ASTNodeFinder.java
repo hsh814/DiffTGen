@@ -27,6 +27,7 @@ public class ASTNodeFinder
 	    ASTNode found_node = findNode(cu, subloc_ctnt);
 	    rslt_list.add(found_node);
 	}
+	System.err.println("Found " + loc + " in " + rslt_list.size());
 	return rslt_list;
     }
 

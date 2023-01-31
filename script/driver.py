@@ -13,6 +13,7 @@ import javalang.tree
 ROOTDIR = "/root/DiffTGen"
 manager = mp.Manager()
 global_cmd_queue = manager.Queue()
+tool_name = ""
 
 def get_end_line(node: javalang.tree.Node, lineid: int) -> int:
     line = lineid
@@ -32,45 +33,113 @@ def get_end_line(node: javalang.tree.Node, lineid: int) -> int:
             line = get_end_line(n, line)
     return line
 
-def get_method_range(filename: str, lineid: int) -> dict:
+def get_method_range(filename: str, lineid: int, contents: str) -> dict:
     method_range = dict()
     found_method = False
-    with open(filename, "r", encoding="utf-8", errors="ignore") as f:
+    target = contents
+    if len(target) == 0:
+      with open(filename, "r", encoding="utf-8", errors="ignore") as f:
         target = f.read()
-        tokens = javalang.tokenizer.tokenize(target)
-        parser = javalang.parser.Parser(tokens)
-        tree = parser.parse()
-        for path, node in tree.filter(javalang.tree.MethodDeclaration):
-            if node.position is None:
-                continue
-            start_line = node.position.line
-            end_line = get_end_line(node, start_line)
-            if (start_line <= lineid + 1) and (end_line >= lineid + 1):
-                print("found it!")
-                print(f"{node.name} - {start_line}, {end_line}")
-                method_range = { "function": node.name, "begin": start_line, "end": end_line }
-                found_method = True
-                break
-        if found_method:
-            return method_range
-        for path, node in tree.filter(javalang.tree.ConstructorDeclaration):
-            if node.position is None:
-                continue
-            start_line = node.position.line
-            end_line = get_end_line(node, start_line)
-            if (start_line <= lineid + 1) and (end_line >= lineid + 1):
-                print("found it!")
-                print(f"{node.name} - {start_line}, {end_line}")
-                method_range = { "function": node.name, "begin": start_line, "end": end_line }
-                found_method = True
-                break
-        if found_method:
-            return method_range
-        return { "function": "0no_function_found", "begin": lineid, "end": lineid }
+    tokens = javalang.tokenizer.tokenize(target)
+    parser = javalang.parser.Parser(tokens)
+    tree = parser.parse()
+    for path, node in tree.filter(javalang.tree.MethodDeclaration):
+        if node.position is None:
+            continue
+        start_line = node.position.line
+        end_line = get_end_line(node, start_line)
+        if (start_line <= lineid + 1) and (end_line >= lineid + 1):
+            print("found it!")
+            print(f"{node.name} - {start_line}, {end_line}")
+            method_range = { "function": node.name, "begin": start_line, "end": end_line }
+            found_method = True
+            break
+    if found_method:
+        return method_range
+    for path, node in tree.filter(javalang.tree.ConstructorDeclaration):
+        if node.position is None:
+            continue
+        start_line = node.position.line
+        end_line = get_end_line(node, start_line)
+        if (start_line <= lineid + 1) and (end_line >= lineid + 1):
+            print("found it!")
+            print(f"{node.name} - {start_line}, {end_line}")
+            method_range = { "function": node.name, "begin": start_line, "end": end_line }
+            found_method = True
+            break
+    if found_method:
+        return method_range
+    return { "function": "0no_function_found", "begin": lineid, "end": lineid }
 
 def get_cn(line: str) -> int:
   ln = line.strip()
   return line.find(ln)
+
+def filter_lines(file, line_nums, file_content: str) -> list:
+  if len(line_nums) < 2:
+    return line_nums
+  line_nums.sort()
+  prev = -3
+  line_set = set()
+  final_line_nums = list()
+  for line_num in line_nums:
+    mrng = get_method_range(file, line_num, file_content)
+    line_str = f'{mrng["begin"]}:{mrng["end"]}'
+    if line_str not in line_set:
+      line_set.add(line_str)
+      final_line_nums.append(line_num)
+    if line_num - prev <= 3:
+      prev = line_num
+      continue
+    prev = line_num
+    final_line_nums.append(line_num)
+  return final_line_nums
+
+def get_diff_lines(file_a, file_b) -> list:
+  with open(file_a, "r", encoding="utf-8", errors="ignore") as fa, open(file_b, "r", encoding="utf-8", errors="ignore") as fb:
+    file_a_str = fa.read()
+    file_b_str = fb.read()
+  file_a_lines = file_a_str.splitlines(keepends=True)
+  file_b_lines = file_b_str.splitlines(keepends=True)
+  list_a = []
+  list_b = []
+  
+  # iterate through the differences and populate the lists
+  diff = list(difflib.unified_diff(file_a_lines, file_b_lines, n=0))
+  delta = list()
+  index = 2
+  while index < len(diff):
+    diff_str = diff[index].strip()
+    print(diff_str)
+    tokens = diff_str.split()
+    before = tokens[1].split(",")
+    original_line = int(before[0])
+    if original_line < 0:
+      original_line = -1 * original_line
+    original_range = 1
+    list_a.append(original_line)
+    if len(before) > 1:
+      original_range = int(before[1])
+    after = tokens[2].split(",")
+    patched_line = int(after[0])
+    patched_range = 1
+    if len(after) > 1:
+      patched_range = int(after[1])
+    cn_a = get_cn(file_a_lines[original_line - 1])
+    cn_b = get_cn(file_b_lines[patched_line - 1])
+    a_str = f"{file_a}"
+    b_str = f"{file_b}"
+    if original_range == 0:
+      a_str = f"null({file_a}:{original_line},{cn_a};after)"
+    else:
+      a_str = f"{file_a}:{original_line},{cn_a}"
+    if patched_range == 0:
+      b_str = f"null({file_b}:{patched_line},{cn_b};before)"
+    else:
+      b_str = f"{file_b}:{patched_line},{cn_b}"
+    delta.append(f"{a_str}\n{b_str}\n")
+    index = index + original_range + patched_range + 1
+  return delta
 
 def get_diff_line(file_original: str, file_patched: str) -> list:
   with open(file_original, "r", encoding="utf-8", errors="ignore") as fo, open(file_patched, "r", encoding="utf-8", errors="ignore") as fp:
@@ -112,77 +181,41 @@ def get_diff_line(file_original: str, file_patched: str) -> list:
         cn = get_cn(patched_contents[line_num - 1])
         delta.append(f"{file_patched}:{line_num},{cn}")
     # Print the numbers
-    diff_content = ""
-    diff = difflib.unified_diff(original_contents, patched_contents)
-    for line in diff:
-      diff_content += line
-    return [original_line, original_range, patched_line, patched_range, diff_content]
+    # diff_content = ""
+    # diff = difflib.unified_diff(original_contents, patched_contents)
+    # for line in diff:
+    #   diff_content += line
+    return [original_line, original_range, patched_line, patched_range]
+
+def delta_to_str(delta: list, patch_diff: list, original_contents, patched_contents, file_original, file_patched) -> str:
+  original_line = patch_diff[0]
+  original_range = patch_diff[1]
+  patched_line = patch_diff[2]
+  patched_range = patch_diff[3]
+  if original_range == 0:
+    cn = get_cn(original_contents[original_line - 1])
+    delta.append(f"null({file_original}:{original_line},{cn};after)")
+  else:
+    cn = get_cn(original_contents[original_line - 1])
+    delta.append(f"{file_original}:{original_line},{cn}")
+  if patched_range == 0:
+    cn = get_cn(patched_contents[patched_line - 1])
+    delta.append(f"null({file_patched}:{patched_line},{cn};before)")
+  else:
+    cn = get_cn(patched_contents[patched_line - 1])
+    delta.append(f"{file_patched}:{patched_line},{cn}")
 
 def get_diff(file_original: str, file_patched: str, file_original_oracle: str, file_patched_oracle: str, line_nums: list) -> None:
-  with open(file_original, "r", encoding="utf-8", errors="ignore") as fo, open(file_patched, "r", encoding="utf-8", errors="ignore") as fp:
-    original_contents = fo.readlines()
-    patched_contents = fp.readlines()
-    diff = difflib.unified_diff(original_contents, patched_contents, n=0)
-    index = 0
-    diff_str = ""
-    original_line = 0
-    original_range = 1
-    patched_line = 0
-    patched_range = 1
-    delta = list()
-    for line in diff:
-      print(line)
-      index += 1
-      if index == 3:
-        diff_str = line.strip()
-        tokens = diff_str.split()
-        before = tokens[1].split(",")
-        original_line = int(before[0])
-        if original_line < 0:
-          original_line = -1 * original_line
-        if len(before) > 1:
-          original_range = int(before[1])
-        after = tokens[2].split(",")
-        patched_line = int(after[0])
-        if len(after) > 1:
-          patched_range = int(after[1])
-        break
-      elif index > 3 and index < 3 + original_range:
-        print("Original line")
-        line_num = original_line + index - 4
-        cn = get_cn(original_contents[line_num - 1])
-        delta.append(f"{file_original}:{line_num},{cn}")
-      elif index >= 3 + original_range:
-        print("Patched line")
-        line_num = patched_line + index - 4 - original_range
-        cn = get_cn(patched_contents[line_num - 1])
-        delta.append(f"{file_patched}:{line_num},{cn}")
-    # Print the numbers
-    if original_range == 0:
-      cn = get_cn(original_contents[original_line - 1])
-      delta.append(f"null({file_original}:{original_line},{cn};after)")
-    else:
-      cn = get_cn(original_contents[original_line - 1])
-      delta.append(f"{file_original}:{original_line},{cn}")
-    if patched_range == 0:
-      cn = get_cn(patched_contents[patched_line - 1])
-      delta.append(f"null({file_patched}:{patched_line},{cn};before)")
-    else:
-      cn = get_cn(patched_contents[patched_line - 1])
-      delta.append(f"{file_patched}:{patched_line},{cn}")
-    print(delta)
-
-    # Oracle
-    delta_oracle = list()
-    with open(file_patched_oracle, "r") as fpo:
-      oracle_contents = fpo.readlines()
-    if os.path.abspath(file_original) != os.path.abspath(file_original_oracle):
-      delta_oracle.append(f"null({file_patched_oracle})")
-    for line_num in line_nums:
-      cn = get_cn(oracle_contents[line_num - 1])
-      delta_oracle.append(f"{file_patched_oracle}:{line_num},{cn}")
-    return delta, delta_oracle
-  return [0,0,0,0]
+  delta = list()
+  if file_original == file_original_oracle:
+    delta = get_diff_lines(file_patched_oracle, file_patched)
+  else:
+    print("Change different files")
+    patch_diff = get_diff_lines(file_original, file_patched)
+    fix_diff = get_diff_lines(file_patched_oracle, file_original_oracle)
+    delta = patch_diff + fix_diff
+  print(delta)
+  return delta
 
 def run_cmd(cmd: List[str], cwd: str) -> bool:
   print("RUN_CMD: " + " ".join(cmd))
@@ -214,7 +247,7 @@ def init_d4j(bugid: str, loc: str, fixed = False) -> None:
   # os.system(f"defects4j compile -w {loc}")
   run_cmd(["defects4j", "export", "-p", "dir.bin.classes", "-o", f"{loc}/builddir.txt"], loc)
   # os.system(f"defects4j export -p dir.bin.classes -w {loc} -o {loc}/builddir.txt")
-  run_cmd(["defects4j", "export", "-p", "cp.compile", "-o", os.path.join(loc, "cp.txt")], loc)
+  run_cmd(["defects4j", "export", "-p", "cp.test", "-o", os.path.join(loc, "cp.txt")], loc)
   with open(f"{loc}/builddir.txt", 'r') as f:
     builddir = f.read().strip()
     tmp_dir = os.path.join(loc, builddir)
@@ -227,6 +260,8 @@ def init_d4j(bugid: str, loc: str, fixed = False) -> None:
     for line in lines:
       if line.endswith(".jar"):
         unzip_jar(temp_deps, line)
+      # else:
+      #   os.system(f"cp -r {line}/* {temp_deps}")
   run_cmd(["jar", "-cf", f"{loc}/{bugid}-with-deps.jar", "."], temp_deps)
 
 
@@ -236,11 +271,14 @@ def execute(cmd: List[str]) -> bool:
   proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   print(f"End with returncode {proc.returncode}")
   end = time.time()
-  print(f"TOTAL TIME: {(end - start)/60} min")
+  if len(cmd) < 5:
+    print(f"TOTAL TIME: {(end - start)/60} min")
+  else:
+    print(f"{cmd[4]} - TOTAL TIME: {(end - start)/60} min")
   try:
     bugid = cmd[2]
     id = cmd[4]
-    log = os.path.join(ROOTDIR, "log", bugid)
+    log = os.path.join(ROOTDIR, "log", tool_name, bugid)
     os.makedirs(log, exist_ok=True)
     with open(os.path.join(log, id + ".log"), "w") as f:
       f.write(" ".join(cmd))
@@ -249,6 +287,8 @@ def execute(cmd: List[str]) -> bool:
       f.write(proc.stdout.decode('utf-8'))
       f.write("\n\nerr:\n\n")
       f.write(proc.stderr.decode('utf-8'))
+    with open(os.path.join(ROOTDIR, "log", tool_name, "done.csv"), "w") as f:
+      f.write(f"{bugid},{id}\n")
   except:
     pass
   return True
@@ -258,16 +298,15 @@ def filter_bugid(bugid: str) -> bool:
     "Closure-63", "Closure-93",
     "Time-21", "Lang-2"
   }
-  # return bugid != "Lang-32"
   return bugid in bids
 
 def write_deltas(deltas: Tuple[List[str], List[str]], patch_file: str, oracle_file: str) -> None:
-  with open(oracle_file, 'w') as o:
-    for d in deltas[1]:
-      o.write(d + "\n")
+  # with open(oracle_file, 'w') as o:
+  #   for d in deltas[1]:
+  #     o.write(d + "\n")
   with open(patch_file, 'w') as p:
-    for d in deltas[0]:
-      p.write(d + "\n")
+    for d in deltas:
+      p.write(d)
 
 def get_groundtruth(bugid: str, d4j_dir: str) -> list:
   proj, bid = bugid.split("-")
@@ -301,12 +340,22 @@ def get_groundtruth(bugid: str, d4j_dir: str) -> list:
     final_line_nums = list()
     if len(line_nums) > 1:
       line_nums.sort()
+      prev = -3
       for line_num in line_nums:
-        mrng = get_method_range(os.path.join(ROOTDIR, "d4j", bugid, file), line_num)
-        line_str = f'{mrng["begin"]}:{mrng["end"]}'
-        if line_str not in line_set:
-          line_set.add(line_str)
-          final_line_nums.append(mrng["begin"])
+        # mrng = get_method_range(os.path.join(ROOTDIR, "d4j", bugid, file), line_num, "")
+        # line_str = f'{mrng["begin"]}:{mrng["end"]}'
+        # if line_str not in line_set:
+        #   line_set.add(line_str)
+        #   final_line_nums.append(line_num)
+        if len(final_line_nums) == 0:
+          prev = line_num
+          final_line_nums.append(line_num)
+          continue
+        if line_num - prev <= 3:
+          prev = line_num
+          continue
+        prev = line_num
+        final_line_nums.append(line_num)
   print(f"Groundtruth: {file} {final_line_nums}")
   return file, final_line_nums
 
@@ -323,8 +372,8 @@ def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
     d4j_dir = os.path.join(ROOTDIR, "d4j", bugid)
     d4j_fixed_dir = os.path.join(ROOTDIR, "d4j", bugid + "f")
     os.makedirs(os.path.join(ROOTDIR, "d4j"), exist_ok=True)
-    init_d4j(bugid, d4j_dir, False)
-    init_d4j(bugid, d4j_fixed_dir, True)
+    # init_d4j(bugid, d4j_dir, False)
+    # init_d4j(bugid, d4j_fixed_dir, True)
     correct_file, line_nums = get_groundtruth(bugid, d4j_dir)
     correct_file = os.path.join(d4j_fixed_dir, correct_file)
     correct_original_file = os.path.join(d4j_dir, correct_file)
@@ -348,7 +397,7 @@ def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
       deps = os.path.join(d4j_dir, "cp.txt")
       if not os.path.exists(deps):
         subprocess.run(["defects4j", "export", "-p", "cp.compile", "-o", deps, "-w", d4j_dir])
-      cp = os.path.join(d4j_dir, bugid + "-with-deps.jar")
+      cp = os.path.join(d4j_fixed_dir, bugid + "-with-deps.jar")
       # with open(deps, 'r') as d:
       #   lines = d.read().strip().split(":")
       #   for line in lines:
@@ -358,11 +407,8 @@ def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
         "-dependjpath", cp,
         "-outputdpath", os.path.join(ROOTDIR, "out", tool),
         "-inputfpath", delta_file, "-oracleinputfpath", oracle_file,
-        "-stopifoverfittingfound", "-evosuitetimeout", "120", "-runparallel"
+        "-stopifoverfittingfound", "-evosuitetimeout", "60", "-evosuitetrials", "30"
       ]
-      patched_delta = get_diff_line(original_file, patched_file)
-      patched_line = patched_delta[0]
-      plau["diff"] = patched_delta[4]
       cmd_list.append(cmd)
     return cmd_list
 
@@ -493,7 +539,7 @@ def main(tool: str, patchdir: str) -> None:
     if os.path.isdir(dir):
       result = prepare(basedir, os.path.join(dir, f"{bugid}.json"), tool)
       cmd_list.extend(result)
-  pool = mp.Pool(processes=16)
+  pool = mp.Pool(processes=32)
   pool.map(execute, cmd_list)
   pool.close()
   pool.join()
@@ -503,6 +549,8 @@ if __name__ == "__main__":
   if len(sys.argv) < 3:
     print("Usage: python3 driver.py <tool> <patchdir>")
     exit(1)
-  cmd = sys.argv[1]
-  # cmd in ["recoder", "alpharepair", "avatar", "tbar", "kpar", "fixminer"]:
-  main(cmd, sys.argv[2])
+  tool_name = sys.argv[1]
+  # get_diff_lines("d4j/Closure-115f/src/com/google/javascript/jscomp/FunctionInjector.java", "/root/DiffTGen/patches/alpharepair/Closure-115/7/100/FunctionInjector.java")
+  # get_diff_lines("/root/DiffTGen/examples/before", "/root/DiffTGen/examples/after")
+  # tool_name in ["recoder", "alpharepair", "avatar", "tbar", "kpar", "fixminer"]:
+  main(tool_name, sys.argv[2])

@@ -228,31 +228,22 @@ public class Main
 
 	
 	List<String> input_lines0 = null;
-	List<String> input_lines1 = null;
 	try { input_lines0 = FileUtils.readLines(new File(inputfpath), (String)null); }
 	catch (Throwable t) {
 	    System.err.println(t);
 	    t.printStackTrace();
 	}
 	if (input_lines0 == null) { return; }
-	try { input_lines1 = FileUtils.readLines(new File(oracleinputfpath), (String)null); }
-	catch (Throwable t) {
-	    System.err.println(t);
-	    t.printStackTrace();
-	}
-	if (input_lines1 == null) { return; }
 
 
 	List<Modification> mod_list = SynDeltaParser.parse(input_lines0);
-	List<MethodToBeInstrumented> oracle_med_instru_list = OracleParser.parse(input_lines1);
-	if (mod_list != null && !mod_list.isEmpty() &&
-	    oracle_med_instru_list != null && !oracle_med_instru_list.isEmpty()) {
+	if (mod_list != null && !mod_list.isEmpty()) {
 	    Main m = new Main();
-	    m.testgen(bugid, repairtool, mod_list, oracle_med_instru_list, trials, timeout, outputdpath);
+	    m.testgen(bugid, repairtool, mod_list, trials, timeout, outputdpath);
 	}
     }
 
-    private boolean init(String bugid, String repair_tool, List<Modification> mod_list, List<MethodToBeInstrumented> oracle_med_instru_list, int trials, int timeout, String output_root_dpath) {
+    private boolean init(String bugid, String repair_tool, List<Modification> mod_list, int trials, int timeout, String output_root_dpath) {
 
 	String testid = bugid + "_" + repair_tool.toLowerCase();
 	
@@ -309,27 +300,11 @@ public class Main
 	    }
 	}
 
-	for (MethodToBeInstrumented oracle_med_instru : oracle_med_instru_list) {
-	    String cppath = oracle_med_instru.getFilePath();
-	    if (cppath == null) { continue; }
-	    if (!copied_set.contains(cppath)) {
-		try {
-		    FileUtils.copyFileToDirectory(new File(cppath), output_fix_dir);
-		    copied_set.add(cppath);
-		}
-		catch (Throwable t) {
-		    System.err.println("Failed copying the file: " + cppath);
-		    t.printStackTrace();
-		    System.err.println(t);
-		    return false;
-		}
-	    }
-	}
 
 	return true;
     }
 
-    public boolean createInstrumentedFiles(String bugid, String repair_tool, List<Modification> mod_list, List<MethodToBeInstrumented> oracle_med_instru_list, int trials, int timeout, String output_root_dpath) {
+    public boolean createInstrumentedFiles(String bugid, String repair_tool, List<Modification> mod_list, int trials, int timeout, String output_root_dpath) {
 
 	String testid = bugid + "_" + repair_tool.toLowerCase();
 	String proj_dpath = output_root_dpath + "/" + testid;
@@ -358,7 +333,6 @@ public class Main
 	Map<String, List<String>> mod_map_pp = new HashMap<String, List<String>>();
 	Map<String, List<String>> mod_map_cp = new HashMap<String, List<String>>();
 	int mod_list_size = mod_list.size();
-	int oracle_med_instru_list_size = oracle_med_instru_list.size();
 	for (int i=0; i<mod_list_size; i++) {
 	    Modification mod = mod_list.get(i);
 	    String fppath = mod.getFPPath();
@@ -392,21 +366,6 @@ public class Main
 	    if (!ppmlocs.contains(ppmloc)) { ppmlocs.add(ppmloc); }
 	}
 
-	for (int i=0; i<oracle_med_instru_list_size; i++) {
-	    MethodToBeInstrumented med_instru = oracle_med_instru_list.get(i);
-	    String cpmloc = med_instru.getMethodLoc();
-	    //if (cpmloc == null) { continue; } //This is not for instrumentation.
-	    //===============
-	    //System.err.println("cpmloc in Main: " + cpmloc);
-	    //===============
-	    String cppath = med_instru.getFilePath();
-	    List<String> cpmlocs = mod_map_cp.get(cppath);
-	    if (cpmlocs == null) {
-		cpmlocs = new ArrayList<String>();
-		mod_map_cp.put(cppath, cpmlocs);
-	    }
-	    if (cpmloc!=null && !cpmlocs.contains(cpmloc)) { cpmlocs.add(cpmloc); }
-	}
 
 	ClassUnderTestInstrumentor cftg = new ClassUnderTestInstrumentor();
 	Iterator mod_map_fp_it = mod_map_fp.entrySet().iterator();
@@ -478,13 +437,8 @@ public class Main
 		    t.printStackTrace();
 		}
 	    }
-			else {
-				List<String> cpmlocs2 = new ArrayList<String>();
-				for (String cpmloc : cpmlocs) {
-					String mloc = ASTHelper.getMethodLoc(cppath, cpmloc);
-					cpmlocs2.add(mloc);
-				}
-		InstrumentedClass cp_oic = cftg.getOutputInstrumentedClass(cppath, cpmlocs2);
+	    else {
+		InstrumentedClass cp_oic = cftg.getOutputInstrumentedClass(cppath, cpmlocs);
 		String cp_oic_fpath = cp_instru0_dpath+"/"+cp_oic.getClassName()+".java";
 		String cp_oic_fctnt = cp_oic.getInstrumentedClassContent();
 		if (cp_oic_fctnt != null) {
@@ -499,7 +453,7 @@ public class Main
 	return true;
     }
 
-    private boolean compileInstrumentedFiles(String bugid, String repair_tool, List<Modification> mod_list, List<MethodToBeInstrumented> oracle_med_instru_list, int trials, int timeout, String output_root_dpath) {
+    private boolean compileInstrumentedFiles(String bugid, String repair_tool, List<Modification> mod_list, int trials, int timeout, String output_root_dpath) {
 
 	String testid = bugid + "_" + repair_tool.toLowerCase();
 	String proj_dpath = output_root_dpath + "/" + testid;
@@ -573,18 +527,6 @@ public class Main
 	    return false;
 	}
 
-	String srcdpath2 = proj_dpath+"/fix/instru0";
-	String desdpath2 = cp_instru0_build_dpath+"/classes";
-	CompileResult comp_rslt2 = CompileExecutor.compile(proj_dir, compilepath, srcdpath2, desdpath2);
-	if (comp_rslt2.getExitValue() != 0) {
-	    System.err.println("Failed Compiling Oracle Program's Output Instrumented & Non-Instrumented Files.");
-	    String[] compile_cmds2 = comp_rslt2.getCompileCommands();
-	    for (String compile_cmd2 : compile_cmds2) {
-		System.err.print(compile_cmd2 + " ");
-	    }
-	    System.err.println();
-	    return false;
-	}
 
 	String srcdpath3 = proj_dpath+"/bug/instru1";
 	String desdpath3 = fp_instru1_build_dpath+"/classes";
@@ -615,7 +557,7 @@ public class Main
 	return true;
     }
 
-    private boolean compileTestTargets(String bugid, String repair_tool, List<Modification> mod_list, List<MethodToBeInstrumented> oracle_med_instru_list, int trials, int timeout, String output_root_dpath) {
+    private boolean compileTestTargets(String bugid, String repair_tool, List<Modification> mod_list, int trials, int timeout, String output_root_dpath) {
 
 	String testid = bugid + "_" + repair_tool.toLowerCase();
 	String proj_dpath = output_root_dpath + "/" + testid;
@@ -749,14 +691,13 @@ public class Main
     }
     
     public void testgen(String bugid, String repair_tool, List<Modification> mod_list,
-			List<MethodToBeInstrumented> oracle_med_instru_list,
 			int trials, int timeout, String output_root_dpath) {
 
 	Timer timer = Global.timer;
 	timer.start();
 
 	System.out.println("Initializing...");
-	boolean status0 = init(bugid, repair_tool, mod_list, oracle_med_instru_list, trials, timeout, output_root_dpath);
+	boolean status0 = init(bugid, repair_tool, mod_list, trials, timeout, output_root_dpath);
 	if (!status0) {
 	    System.err.println("Initialization Failure.");
 	    return;
@@ -765,7 +706,7 @@ public class Main
 
 
 	System.out.println("Creating Instrumented Files...");
-	boolean status1 = createInstrumentedFiles(bugid, repair_tool, mod_list, oracle_med_instru_list, trials, timeout, output_root_dpath);
+	boolean status1 = createInstrumentedFiles(bugid, repair_tool, mod_list, trials, timeout, output_root_dpath);
 	if (!status1) {
 	    System.err.println("Create Instrumentation Files Failure.");
 	    return;
@@ -774,7 +715,7 @@ public class Main
 
 
 	System.out.println("Compiling Instrumented Files...");	
-	boolean status2 = compileInstrumentedFiles(bugid, repair_tool, mod_list, oracle_med_instru_list, trials, timeout, output_root_dpath);
+	boolean status2 = compileInstrumentedFiles(bugid, repair_tool, mod_list, trials, timeout, output_root_dpath);
 	if (!status2) {
 	    System.err.println("Compiling Instrumented Files Failure.");
 	    return;
@@ -804,7 +745,7 @@ public class Main
 
 
 	System.out.println("Compiling Test Target(s)...");
-	boolean status3 = compileTestTargets(bugid, repair_tool, mod_list, oracle_med_instru_list, trials, timeout, output_root_dpath);
+	boolean status3 = compileTestTargets(bugid, repair_tool, mod_list, trials, timeout, output_root_dpath);
 	if (!status3) {
 	    System.err.println("Compiling Target Programs Failure.");
 	    return;
