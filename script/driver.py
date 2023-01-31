@@ -238,6 +238,8 @@ def init_d4j(bugid: str, loc: str, fixed = False) -> None:
   if int(bid) > 1000:
     bid = bid[:-3]
   print(f"Checkout {bugid}")
+  if os.path.exists(f"{loc}/{bugid}-with-deps.jar"):
+    return
   run_cmd(["rm", "-rf", loc], ROOTDIR)
   version = bid + "f" if fixed else bid + "b"
   run_cmd(["defects4j", "checkout", "-p", proj, "-v", version, "-w", loc], ROOTDIR)
@@ -468,7 +470,7 @@ def run(basedir: str, conf_file: str) -> List[List[str]]:
         "-dependjpath", cp,
         "-outputdpath", os.path.join(ROOTDIR, "out", tool),
         "-inputfpath", delta_file, "-oracleinputfpath", oracle_file,
-        "-stopifoverfittingfound", "-evosuitetimeout", "120", "-runparallel"
+        "-stopifoverfittingfound", "-evosuitetimeout", "120" #, "-runparallel"
       ]
       patched_delta = get_diff_line(original_file, patched_file)
       patched_line = patched_delta[0]

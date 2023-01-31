@@ -7,7 +7,10 @@ ROOTDIR = "/root/DiffTGen"
 def sort_bugids(bugids):
     proj_dict = dict()
     for bugid in bugids:
-        proj, id = bugid.split("-")
+        if '_' in bugid:
+            proj, id = bugid.split("_")
+        else:
+            proj, id = bugid.split("-")
         if proj not in proj_dict:
             proj_dict[proj] = list()
         proj_dict[proj].append(int(id))
