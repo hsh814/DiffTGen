@@ -137,7 +137,8 @@ def get_diff_lines(file_a, file_b) -> list:
       b_str = f"null({file_b}:{patched_line},{cn_b};before)"
     else:
       b_str = f"{file_b}:{patched_line},{cn_b}"
-    delta.append(f"{a_str}\n{b_str}\n")
+    if get_method_range(file_a, original_line, file_a_str)["function"] != "0no_function_found":
+      delta.append(f"{a_str}\n{b_str}\n")
     index = index + original_range + patched_range + 1
   return delta
 
