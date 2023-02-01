@@ -55,8 +55,9 @@ def main(args: list) -> None:
         if not os.path.isdir(out_id_dir):
           print(f"Missing {out_id_dir}")
           continue
-        if len(os.listdir(out_id_dir)) == 0:
-          print(f"Empty {out_id_dir}")
+        result_file = os.path.join(outdir, out_id, "result.csv")
+        if not os.path.exists(result_file):
+          # print(f"Empty {out_id_dir}")
           bugmap[bugid].append({"id": patchid, "location": patchloc})
         else:
           print(f"Incorrect {out_id_dir}")

@@ -127,12 +127,12 @@ public class TestCaseGeneratorTrial implements Callable<List<TestCase>>
 	System.err.println("Target "+targetid+" Trial "+trialid+" finish generating & compiling test class.");
 	
 	//Test fp, pp & cp against the test class
-	String fp_rslt_path = proj_dpath + "/bug/test/"+targetid+"/"+trialid+"/rslt";
+	String fp_rslt_path = proj_dpath + "/bug/test/"+targetid+"/"+trialid+"/rslt_a";
 	String fp_rslt_dpath = proj_dpath + "/bug/test/"+targetid+"/"+trialid;
 	String pp_rslt_path = proj_dpath + "/patch/test/"+targetid+"/"+trialid+"/rslt";
 	String pp_rslt_dpath = proj_dpath + "/patch/test/"+targetid+"/"+trialid;
-	String cp_rslt_path = proj_dpath + "/fix/test/"+targetid+"/"+trialid+"/rslt";
-	String cp_rslt_dpath = proj_dpath + "/fix/test/"+targetid+"/"+trialid;
+	String cp_rslt_path = proj_dpath + "/bug/test/"+targetid+"/"+trialid+"/rslt";
+	String cp_rslt_dpath = proj_dpath + "/bug/test/"+targetid+"/"+trialid;
 
 	File fp_rslt_dir = new File(fp_rslt_dpath);
 	File pp_rslt_dir = new File(pp_rslt_dpath);
@@ -149,8 +149,13 @@ public class TestCaseGeneratorTrial implements Callable<List<TestCase>>
 	    "-Ddependjpath="+dependjpath,
 	    "-Ddifftgendir="+difftgendpath, "run-tclass" };
 
-	int test_fp_exit_val = CommandExecutor.execute(test_fp_cmds, fp_rslt_dir, new File(fp_rslt_path));
-
+	// int test_fp_exit_val = CommandExecutor.execute(test_fp_cmds, fp_rslt_dir, new File(fp_rslt_path));
+	int test_fp_exit_val = OracleRunner.writeResultWithDeprecatedValues(fp_rslt_dpath, test_fp_cmds);
+	if (test_fp_exit_val != 0) {
+	    System.err.println("Target "+targetid+" Trial "+trialid+": Oracle Result is NOT available.");
+	    System.err.println("*** Target "+targetid+" Trial " + trialid + " finished ***");
+	    return tc_list;
+	}
 	String[] test_pp_cmds = new String[] {
 	    "ant", "-f", difftgendpath+"/tclassrunner.xml",
 	    "-Dtclass_full_name="+tclass_full_name,
@@ -182,10 +187,13 @@ public class TestCaseGeneratorTrial implements Callable<List<TestCase>>
 	
 	File fp_rslt_f = new File(fp_rslt_path);
 	File pp_rslt_f = new File(pp_rslt_path);
+        File cp_rslt_f = new File(cp_rslt_path);
 	List<TestResult> fp_tr_list = readResultFile(fp_rslt_f);
 	List<TestResult> pp_tr_list = readResultFile(pp_rslt_f);
-	int fp_tr_list_size = fp_tr_list.size();
+	List<TestResult> cp_tr_list = readResultFile(cp_rslt_f);
+        int fp_tr_list_size = fp_tr_list.size();
 	int pp_tr_list_size = pp_tr_list.size();
+        int cp_tr_list_size = cp_tr_list.size();
 
 	int tr_size = (fp_tr_list_size <= pp_tr_list_size) ? fp_tr_list_size : pp_tr_list_size;
 	boolean diff_semantics_found = false;
@@ -205,9 +213,36 @@ public class TestCaseGeneratorTrial implements Callable<List<TestCase>>
 
 		if (!fp_tr_ctnt.equals(pp_tr_ctnt)) {
 		    diff_semantics_found = true;
+                    TestResult cp_tr = cp_tr_list.get(j);
 		    System.err.println("Target "+targetid+" Trial "+trialid+": Semantic Difference Found!");
-		    // STOP!!!!
-		    writeResult();
+			String cp_tr_ctnt = cp_tr.getResultContent().trim();
+			ExpectedItem ei0 = getExpectedItem(fp_tr_mname, fp_tr_ctnt, pp_tr_ctnt, cp_tr_ctnt);
+			if (ei0 == null) { //Give up this test method
+			    continue;
+			} 
+
+			int ei0_prop = ei0.getProperty();
+			if (ei0_prop == 0) {
+			    regression_found = true;
+			    if (regression_ei == null) { regression_ei = ei0; }
+			    System.err.println("Target "+targetid+" Trial "+trialid+": Regression Test Found!");
+			    // STOP!!!!
+                            writeResult();
+                            if (overfitting_break) { break; }
+			}
+			else if (ei0_prop == 1) {
+			    repair_found = true;
+			    if (repair_ei == null) { repair_ei = ei0; }
+			    System.err.println("Target "+targetid+" Trial "+trialid+": Repair Test Found!");
+			}
+			else if (ei0_prop == 2) {
+			    defective_found = true;
+			    if (defective_ei == null) { defective_ei = ei0; }
+			    System.err.println("Target "+targetid+" Trial "+trialid+": Both-incorrect Test Found!");
+			    // STOP!!!!
+                            writeResult();
+                            if (overfitting_break) { break; }
+			}
 		}
 		else {
 		    System.err.println("Target "+targetid+" Trial "+trialid+": Identical Running Results.");
