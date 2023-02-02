@@ -47,12 +47,13 @@ def main(args: list) -> None:
       bug_json = os.path.join(dir, f"{bugid}.json")
       if not os.path.isfile(bug_json):
         print(f"Missing {bug_json}")
-        return
+        continue
       with open(bug_json, "r") as f:
         bugj = json.load(f)
       for patch in bugj["plausible_patches"]:
         tot += 1
         patchid = patch["id"]
+        if tool in ['tbar','avatar','kpar','fixminer']: patchid=patchid.lower()
         patchloc = patch["location"]
         out_id = f"{bugid}_{patchid}"
         out_id_dir = os.path.join(outdir, out_id)
@@ -82,7 +83,11 @@ def main(args: list) -> None:
     line = line[:-1]
     csv_content.append(line + "\n")
   with open(os.path.join(ROOTDIR, "out", f"{tool}.csv"), "w") as f:
+<<<<<<< HEAD
     f.writelines(csv_content)
+=======
+    f.writelines(csv_content) 
+>>>>>>> 5f5386caae4576ce40b89aaa01a673f384b302e6
   print(f"Total: {tot}, Filtered: {filtered}, Done: {done}")
 
 if __name__ == "__main__":
