@@ -83,11 +83,7 @@ def main(args: list) -> None:
     line = line[:-1]
     csv_content.append(line + "\n")
   with open(os.path.join(ROOTDIR, "out", f"{tool}.csv"), "w") as f:
-<<<<<<< HEAD
     f.writelines(csv_content)
-=======
-    f.writelines(csv_content) 
->>>>>>> 5f5386caae4576ce40b89aaa01a673f384b302e6
   print(f"Total: {tot}, Filtered: {filtered}, Done: {done}")
 
 if __name__ == "__main__":
