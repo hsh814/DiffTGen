@@ -43,12 +43,13 @@ def main(args: list) -> None:
       bug_json = os.path.join(dir, f"{bugid}.json")
       if not os.path.isfile(bug_json):
         print(f"Missing {bug_json}")
-        return
+        continue
       with open(bug_json, "r") as f:
         bugj = json.load(f)
       for patch in bugj["plausible_patches"]:
         tot += 1
         patchid = patch["id"]
+        if tool=='kpar': patchid=patchid.lower()
         patchloc = patch["location"]
         out_id = f"{bugid}_{patchid}"
         out_id_dir = os.path.join(outdir, out_id, "testcase")
