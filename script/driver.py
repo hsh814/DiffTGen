@@ -297,12 +297,9 @@ def execute(cmd: List[str]) -> bool:
     pass
   return True
 
-def filter_bugid(bugid: str) -> bool:
-  bids = { 
-    "Closure-63", "Closure-93",
-    "Time-21", "Lang-2"
-  }
-  return bugid in bids
+def filter_bugid(bugid: str,tool_name:str) -> bool:
+  log = os.path.join(ROOTDIR, "log", tool_name, bugid)
+  return os.path.isdir(log)
 
 def write_deltas(deltas: Tuple[List[str], List[str]], patch_file: str, oracle_file: str) -> None:
   # with open(oracle_file, 'w') as o:
@@ -370,7 +367,7 @@ def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
     cmd_list = list()
     conf: dict = json.load(c)
     bugid: str = conf["bugid"]
-    if filter_bugid(bugid):
+    if filter_bugid(bugid,tool):
       return cmd_list
     plau_patch_list = conf["plausible_patches"]
     d4j_dir = os.path.join(ROOTDIR, "d4j", bugid)
@@ -426,7 +423,7 @@ def run(basedir: str, conf_file: str) -> List[List[str]]:
     conf_new["same_file"] = list()
     conf_new["diff_file"] = list()
     bugid: str = conf["bugid"]
-    if filter_bugid(bugid):
+    if filter_bugid(bugid,''):
       return cmd_list
     tool = conf["tool"]
     plau_patch_list = conf["plausible_patches"]

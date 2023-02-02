@@ -20,7 +20,10 @@ def sort_bugids(bugids):
         ids = proj_dict[proj]
         ids.sort()
         for id in ids:
-            result.append(f"{proj}-{id}")
+            if '_' in bugids[0]:
+                result.append(f"{proj}_{id}")
+            else:
+                result.append(f"{proj}-{id}")
     return result
 
 def main(args: list) -> None:
@@ -30,6 +33,7 @@ def main(args: list) -> None:
     return
   tot = 0
   filtered = 0
+  done = 0
   tool = args[1]
   basedir = args[2]
   outdir = os.path.join(ROOTDIR, "out",tool)
@@ -52,11 +56,12 @@ def main(args: list) -> None:
         if tool=='kpar': patchid=patchid.lower()
         patchloc = patch["location"]
         out_id = f"{bugid}_{patchid}"
-        out_id_dir = os.path.join(outdir, out_id, "testcase")
+        out_id_dir = os.path.join(outdir, out_id)
         if not os.path.isdir(out_id_dir):
           print(f"Missing {out_id_dir}")
           continue
-        result_file = os.path.join(outdir, out_id, "result.csv")
+        done += 1
+        result_file = os.path.join(out_id_dir, "result.csv")
         if not os.path.exists(result_file):
           # print(f"Empty {out_id_dir}")
           bugmap[bugid].append({"id": patchid, "location": patchloc})
@@ -64,7 +69,7 @@ def main(args: list) -> None:
           print(f"Incorrect {out_id_dir}")
           filtered += 1
         
-  bugids = bugmap.keys()
+  bugids = list(bugmap.keys())
   bugids = sort_bugids(bugids)
   csv_content = list()
   for bugid in bugids:
@@ -76,9 +81,9 @@ def main(args: list) -> None:
         line += f"{testcase['location']},"
     line = line[:-1]
     csv_content.append(line + "\n")
-  with open(os.path.join(ROOTDIR, "out", f"{tool}.csv"), "w") as f:
-    f.writelines(csv_content) 
-  print(f"Total: {tot}, Filtered: {filtered}")
+  # with open(os.path.join(ROOTDIR, "out", f"{tool}.csv"), "w") as f:
+  #   f.writelines(csv_content) 
+  print(f"Total: {tot}, Filtered: {filtered}, Done: {done}")
 
 if __name__ == "__main__":
   main(sys.argv)
