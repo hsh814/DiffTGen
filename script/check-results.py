@@ -30,6 +30,7 @@ def main(args: list) -> None:
     return
   tot = 0
   filtered = 0
+  done = 0
   tool = args[1]
   basedir = args[2]
   outdir = os.path.join(ROOTDIR, "out",tool)
@@ -55,6 +56,7 @@ def main(args: list) -> None:
         if not os.path.isdir(out_id_dir):
           print(f"Missing {out_id_dir}")
           continue
+        done += 1
         result_file = os.path.join(outdir, out_id, "result.csv")
         if not os.path.exists(result_file):
           # print(f"Empty {out_id_dir}")
@@ -75,9 +77,9 @@ def main(args: list) -> None:
         line += f"{testcase['location']},"
     line = line[:-1]
     csv_content.append(line + "\n")
-  with open(os.path.join(ROOTDIR, "out", f"{tool}.csv"), "w") as f:
-    f.writelines(csv_content) 
-  print(f"Total: {tot}, Filtered: {filtered}")
+  # with open(os.path.join(ROOTDIR, "out", f"{tool}.csv"), "w") as f:
+  #   f.writelines(csv_content) 
+  print(f"Total: {tot}, Filtered: {filtered}, Done: {done}")
 
 if __name__ == "__main__":
   main(sys.argv)
