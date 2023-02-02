@@ -389,6 +389,8 @@ def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
       original_file = f'{d4j_dir}/{plau["file"]}'
       id = plau["id"]
       location = plau["location"]
+      if os.path.isdir(os.path.join(ROOTDIR, "out", tool,bugid+'_'+id)):
+        continue
       print(f"Patch {id}")
       patched_file = os.path.join(basedir, bugid) + "/" + location
       deltas = get_diff(original_file, patched_file, correct_original_file, correct_file, line_nums)
