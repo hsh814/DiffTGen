@@ -81,8 +81,8 @@ def main(args: list) -> None:
         line += f"{testcase['location']},"
     line = line[:-1]
     csv_content.append(line + "\n")
-  # with open(os.path.join(ROOTDIR, "out", f"{tool}.csv"), "w") as f:
-  #   f.writelines(csv_content) 
+  with open(os.path.join(ROOTDIR, "out", f"{tool}.csv"), "w") as f:
+    f.writelines(csv_content) 
   print(f"Total: {tot}, Filtered: {filtered}, Done: {done}")
 
 if __name__ == "__main__":
