@@ -68,7 +68,7 @@ def main(args: list) -> None:
           print(f"Incorrect {out_id_dir}")
           filtered += 1
         
-  bugids = bugmap.keys()
+  bugids = list(bugmap.keys())
   bugids = sort_bugids(bugids)
   csv_content = list()
   for bugid in bugids:
