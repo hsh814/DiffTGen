@@ -51,11 +51,11 @@ def main(args: list) -> None:
         patchid = patch["id"]
         patchloc = patch["location"]
         out_id = f"{bugid}_{patchid}"
-        out_id_dir = os.path.join(outdir, out_id, "testcase")
+        out_id_dir = os.path.join(outdir, out_id)
         if not os.path.isdir(out_id_dir):
           print(f"Missing {out_id_dir}")
           continue
-        result_file = os.path.join(outdir, out_id, "result.csv")
+        result_file = os.path.join(out_id_dir, "result.csv")
         if not os.path.exists(result_file):
           # print(f"Empty {out_id_dir}")
           bugmap[bugid].append({"id": patchid, "location": patchloc})
