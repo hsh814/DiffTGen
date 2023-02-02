@@ -57,6 +57,7 @@ def main(args: list) -> None:
         out_id = f"{bugid}_{patchid}"
         out_id_dir = os.path.join(outdir, out_id)
         if not os.path.isdir(out_id_dir):
+          bugmap[bugid].append({"id": patchid, "location": patchloc})
           print(f"Missing {out_id_dir}")
           continue
         done += 1
@@ -80,8 +81,8 @@ def main(args: list) -> None:
         line += f"{testcase['location']},"
     line = line[:-1]
     csv_content.append(line + "\n")
-  # with open(os.path.join(ROOTDIR, "out", f"{tool}.csv"), "w") as f:
-  #   f.writelines(csv_content) 
+  with open(os.path.join(ROOTDIR, "out", f"{tool}.csv"), "w") as f:
+    f.writelines(csv_content)
   print(f"Total: {tot}, Filtered: {filtered}, Done: {done}")
 
 if __name__ == "__main__":
