@@ -20,7 +20,10 @@ def sort_bugids(bugids):
         ids = proj_dict[proj]
         ids.sort()
         for id in ids:
-            result.append(f"{proj}-{id}")
+            if '_' in bugids[0]:
+                result.append(f"{proj}_{id}")
+            else:
+                result.append(f"{proj}-{id}")
     return result
 
 def main(args: list) -> None:
