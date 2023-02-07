@@ -415,6 +415,122 @@ def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
       cmd_list.append(cmd)
     return cmd_list
 
+def get_src_path(project):
+    project_name, bug_id = project.split("-")
+    if len(bug_id)>=4: bug_id=bug_id[:-3]
+    bug_id = int(bug_id)
+    if project_name == "Math":
+        if bug_id < 85:
+            return "/src/main/java/"
+        return "/src/java/"
+    elif project_name == "Time":
+        return "/src/main/java/"
+    elif project_name == "Lang":
+        if bug_id <= 35:
+            return "/src/main/java/"
+        return "/src/java/"
+    elif project_name == "Chart":
+        return "/source/"
+    elif project_name == "Closure":
+        return "/src/"
+    elif project_name == "Mockito":
+        return "/src/"
+    return None
+
+def get_target_path(project):
+    project_name, bug_id = project.split("-")
+    if len(bug_id)>=4: bug_id=bug_id[:-3]
+    bug_id = int(bug_id)
+    if project_name == "Math":
+      return "/target/classes/"
+    elif project_name == "Time":
+      return "/target/classes/"
+    elif project_name == "Lang":
+      return "/target/classes/"
+    elif project_name == "Chart":
+      return "/build/"
+    elif project_name == "Closure":
+      return "/build/classes/"
+    elif project_name == "Mockito":
+      if bug_id <= 11 or 18 <= bug_id <= 21:
+        return "/build/classes/main/"
+      return '/target/classes/'
+    return None
+
+def decompile(path:str,target_file_path:str):
+  """
+    path: path to the class file (e.g. target/classes/.../foo.class)
+    target_file_path: path to the decompiled file (e.g. src/main/java/.../foo.java)
+  """
+  target_dirs=target_file_path.split('/')[:-1]
+  target_dir=os.path.join(*target_dirs)
+  result=subprocess.run(['java','-jar','/root/project/intellij-community/plugins/java-decompiler/engine/build/libs/fernflower.jar',
+                      path,f'{target_dir}'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+  if result.returncode!=0:
+    print(result.stdout.decode('utf-8'),file=sys.stderr)
+    return False
+  
+  decompiled_file=path.split('/')[-1].replace('.class','.java')  # mutant-N.java
+  if decompiled_file.startswith('mutant-'):
+    _=subprocess.run(['mv',decompiled_file,target_file_path.split('/')[-1]],cwd=target_dir)  # foo.java
+
+def prepare_prapr(project:str,basedir: str, conf_file: str, tool: str) -> List[List[str]]:
+  if not os.path.exists(conf_file):
+    return list()
+  with open(conf_file, 'r') as c:
+    cmd_list = list()
+    conf: dict = json.load(c)
+    bugid: str = project
+    if filter_bugid(bugid,tool):
+      return cmd_list
+    plau_patch_list = conf
+    d4j_dir = os.path.join(ROOTDIR, "d4j", bugid)
+    d4j_fixed_dir = os.path.join(ROOTDIR, "d4j", bugid + "f")
+    os.makedirs(os.path.join(ROOTDIR, "d4j"), exist_ok=True)
+    init_d4j(bugid, d4j_dir, False)
+    init_d4j(bugid, d4j_fixed_dir, True)
+    correct_file, line_nums = get_groundtruth(bugid, d4j_dir)
+    correct_file = os.path.join(d4j_fixed_dir, correct_file)  # Fixed
+    correct_original_file = os.path.join(d4j_dir, correct_file)  # Buggy
+    decompile(os.path.join(d4j_dir,get_target_path(bugid),correct_file.replace('.java','.class')),correct_original_file)
+    
+    print(f"Correct file: {correct_file}")
+    # correct_original_file_ = os.path.join(d4j_dir, correct[0])
+    # correct_file = os.path.join(d4j_fixed_dir, correct[0])
+    # correct_patched_file = os.path.join(basedir, bugid, location)
+    # # oracle_delta = get_diff_line(correct_original_file, correct_patched_file)
+    # oracle_method_range = get_method_range(correct_original_file, oracle_delta[0])
+    for plau in plau_patch_list:
+      print("===============================================")
+      original_file = f'{d4j_dir}/{get_src_path(bugid)}/{plau["file"]}'
+      id = plau["patch_id"]
+      location = plau["patched_source_file"]
+      if os.path.isdir(os.path.join(ROOTDIR, "out", tool,bugid+'_'+id)):
+        continue
+      print(f"Patch {id}")
+      patched_file = location
+      deltas = get_diff(original_file, patched_file, correct_original_file, correct_file, line_nums)
+      delta_file = os.path.join(os.path.dirname(patched_file), "delta.txt")
+      oracle_file = os.path.join(os.path.dirname(patched_file), "oracle.txt")
+      write_deltas(deltas, delta_file, oracle_file)
+      deps = os.path.join(d4j_dir, "cp.txt")
+      if not os.path.exists(deps):
+        subprocess.run(["defects4j", "export", "-p", "cp.compile", "-o", deps, "-w", d4j_dir])
+      cp = os.path.join(d4j_fixed_dir, bugid + "-with-deps.jar")
+      # with open(deps, 'r') as d:
+      #   lines = d.read().strip().split(":")
+      #   for line in lines:
+      #     if line.endswith(".jar"):
+      #       cp += f":{line}"
+      cmd = ["./run", "-bugid", bugid, "-repairtool", id, 
+        "-dependjpath", cp,
+        "-outputdpath", os.path.join(ROOTDIR, "out", tool),
+        "-inputfpath", delta_file, "-oracleinputfpath", oracle_file,
+        "-stopifoverfittingfound", "-evosuitetimeout", "60", "-evosuitetrials", "30"
+      ]
+      cmd_list.append(cmd)
+    return cmd_list
+
 
 def run(basedir: str, conf_file: str) -> List[List[str]]:
   with open(conf_file, 'r') as c:
