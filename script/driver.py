@@ -493,8 +493,8 @@ def prepare_prapr(project:str,basedir: str, conf_file: str, tool: str) -> List[L
     correct_file = os.path.join(d4j_fixed_dir, correct_file)  # Fixed
     correct_original_file = os.path.join(d4j_dir, correct_file)  # Buggy
     # Save decompiled results
-    correct_file_decompile = ""
-    decompile(os.path.join(d4j_dir,get_target_path(bugid),correct_file.replace('.java','.class')),correct_original_file)
+    correct_file_decompile = os.path.join(d4j_fixed_dir,get_target_path(bugid),correct_file.replace(get_src_path(bugid),''))
+    decompile(os.path.join(d4j_fixed_dir,get_target_path(bugid),correct_file.replace('.java','.class')),correct_file_decompile)
     
     print(f"Correct file: {correct_file}")
     # correct_original_file_ = os.path.join(d4j_dir, correct[0])
@@ -504,7 +504,7 @@ def prepare_prapr(project:str,basedir: str, conf_file: str, tool: str) -> List[L
     # oracle_method_range = get_method_range(correct_original_file, oracle_delta[0])
     for plau in plau_patch_list:
       print("===============================================")
-      original_file = f'{d4j_dir}/{get_src_path(bugid)}/{plau["file"]}'
+      original_file = f'{d4j_fixed_dir}/{get_src_path(bugid)}/{plau["file"]}'
       id = plau["patch_id"]
       location = plau["patched_source_file"]
       if os.path.isdir(os.path.join(ROOTDIR, "out", tool,bugid+'_'+id)):
@@ -512,11 +512,18 @@ def prepare_prapr(project:str,basedir: str, conf_file: str, tool: str) -> List[L
       print(f"Patch {id}")
       patched_file = location
       patched_file_decompile = ""
-      if os.path.abspath(patched_file) == os.path.abspath(correct_file):
+      if os.path.abspath(original_file) == os.path.abspath(correct_file):
+        # Fixed file == Patched file
         deltas = get_diff("", patched_file_decompile, "", correct_file_decompile, line_nums)
       else:
-        original_file_decompile = "" # decompile original_file -> original_file_decompile
-        deltas = get_diff(original_file_decompile, patched_decompile, correct_original_file, correct_file, line_nums)
+        # Fixed file != Patched file
+        # Decompile original of fixed file
+        original_file_decompile = os.path.join(d4j_dir,get_target_path(bugid),correct_file.replace(get_src_path(bugid),''))
+        decompile(os.path.join(d4j_dir,get_target_path(bugid),correct_file.replace(get_src_path(bugid),'').replace('.java','.class')),original_file_decompile)
+        # Decompile original of patched file
+        original_patched_file_decompile = os.path.join(d4j_dir,get_target_path(bugid),plau['file'])
+        decompile(os.path.join(d4j_dir,get_target_path(bugid),plau['file'].replace('.java','.class')),original_patched_file_decompile)
+        deltas = get_diff(original_file_decompile, patched_file_decompile, correct_original_file, correct_file, line_nums)
       # deltas = get_diff(original_file, patched_file, correct_original_file, correct_file, line_nums)
       delta_file = os.path.join(os.path.dirname(patched_file), "delta.txt")
       oracle_file = os.path.join(os.path.dirname(patched_file), "oracle.txt")
