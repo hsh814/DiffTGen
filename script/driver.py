@@ -674,14 +674,13 @@ def main(tool: str, patchdir: str) -> None:
   if tool=='prapr':
     basedir = os.path.abspath(patchdir)
     cmd_list = list()
-    # for bugid in sort_bugids(os.listdir(basedir)):
-    bugid='Chart-7'
-    dir = os.path.join(basedir, bugid,'target','prapr-reports')
-    dir=dir+'/'+os.listdir(dir)[0]
-    if os.path.isdir(dir):
-      result = prepare_prapr('Chart-7',basedir, os.path.join(dir, f"valid-patches.json"), tool)
-      cmd_list.extend(result)
-        # break
+    for bugid in sort_bugids(os.listdir(basedir)):
+      dir = os.path.join(basedir, bugid,'target','prapr-reports')
+      dir=dir+'/'+os.listdir(dir)[0]
+      if os.path.isdir(dir):
+        result = prepare_prapr(bugid,basedir, os.path.join(dir, f"valid-patches.json"), tool)
+        cmd_list.extend(result)
+        break
 
     pool = mp.Pool(processes=32)
     pool.map(execute, cmd_list)
