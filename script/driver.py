@@ -683,6 +683,7 @@ def main(tool: str, patchdir: str) -> None:
     basedir = os.path.abspath(patchdir)
     cmd_list = list()
     for bugid in sort_bugids(os.listdir(basedir)):
+      if 'Closure' in bugid: continue
       dir = os.path.join(basedir, bugid,'target','prapr-reports')
       dir=dir+'/'+os.listdir(dir)[0]
       if os.path.isdir(dir):
