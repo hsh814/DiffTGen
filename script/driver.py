@@ -462,13 +462,16 @@ def decompile(path:str,target_file_path:str):
     path: path to the class file (e.g. target/classes/.../foo.class)
     target_file_path: path to the decompiled file (e.g. src/main/java/.../foo.java)
   """
+  print(f'decompile {path} to {target_file_path}...')
   target_dirs=target_file_path.split('/')[:-1]
   target_dir='/'+os.path.join(*target_dirs)
-  result=subprocess.run(['java','-jar','/root/project/intellij-community/plugins/java-decompiler/engine/build/libs/fernflower.jar',
+  result=subprocess.run(['/opt/jdk-11/bin/java','-jar','/root/project/intellij-community/plugins/java-decompiler/engine/build/libs/fernflower.jar',
                       path,f'{target_dir}'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
   if result.returncode!=0:
     print(result.stdout.decode('utf-8'),file=sys.stderr)
     return False
+
+  print(result.stdout.decode('utf-8'))
   
   decompiled_file=path.split('/')[-1].replace('.class','.java')  # mutant-N.java
   if decompiled_file.startswith('mutant-'):
@@ -522,11 +525,11 @@ def prepare_prapr(project:str,basedir: str, conf_file: str, tool: str) -> List[L
       else:
         # Fixed file != Patched file
         # Decompile original of fixed file
-        original_file_decompile = os.path.join(d4j_dir,get_target_path(bugid),correct_file.replace(get_src_path(bugid),''))
-        decompile(os.path.join(d4j_dir,get_target_path(bugid),correct_file.replace(get_src_path(bugid),'').replace('.java','.class')),original_file_decompile)
+        original_file_decompile = os.path.join(d4j_dir,get_target_path(bugid)[1:],correct_file_relation_path)
+        decompile(os.path.join(d4j_dir,get_target_path(bugid)[1:],correct_file_relation_path.replace('.java','.class')),original_file_decompile)
         # Decompile original of patched file
-        original_patched_file_decompile = os.path.join(d4j_dir,get_target_path(bugid),plau['file'])
-        decompile(os.path.join(d4j_dir,get_target_path(bugid),plau['file'].replace('.java','.class')),original_patched_file_decompile)
+        original_patched_file_decompile = os.path.join(d4j_dir,get_target_path(bugid)[1:],plau['file'])
+        decompile(os.path.join(d4j_dir,get_target_path(bugid)[1:],plau['file'].replace('.java','.class')),original_patched_file_decompile)
         deltas = get_diff(original_file_decompile, patched_file, correct_original_file, correct_file, line_nums)
       # deltas = get_diff(original_file, patched_file, correct_original_file, correct_file, line_nums)
       delta_file = os.path.join(os.path.dirname(patched_file), "delta.txt")
@@ -680,7 +683,6 @@ def main(tool: str, patchdir: str) -> None:
       if os.path.isdir(dir):
         result = prepare_prapr(bugid,basedir, os.path.join(dir, f"valid-patches.json"), tool)
         cmd_list.extend(result)
-        break
 
     pool = mp.Pool(processes=32)
     pool.map(execute, cmd_list)
