@@ -40,9 +40,13 @@ def get_method_range(filename: str, lineid: int, contents: str) -> dict:
     if len(target) == 0:
       with open(filename, "r", encoding="utf-8", errors="ignore") as f:
         target = f.read()
-    tokens = javalang.tokenizer.tokenize(target)
-    parser = javalang.parser.Parser(tokens)
-    tree = parser.parse()
+    try:
+      tokens = javalang.tokenizer.tokenize(target)
+      parser = javalang.parser.Parser(tokens)
+      tree = parser.parse()
+    except Exception as e:
+      print(e)
+      return { "function": "0no_function_found", "begin": lineid, "end": lineid }
     for path, node in tree.filter(javalang.tree.MethodDeclaration):
         if node.position is None:
             continue
@@ -412,7 +416,8 @@ def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
         "-inputfpath", delta_file, "-oracleinputfpath", oracle_file,
         "-stopifoverfittingfound", "-evosuitetimeout", "60", "-evosuitetrials", "30"
       ]
-      cmd_list.append(cmd)
+      if len(deltas) > 0:
+        cmd_list.append(cmd)
     return cmd_list
 
 def get_src_path(project):
