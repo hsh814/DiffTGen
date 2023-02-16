@@ -256,6 +256,8 @@ def init_d4j(bugid: str, loc: str, fixed = False) -> None:
   run_cmd(["defects4j", "export", "-p", "dir.bin.classes", "-o", f"{loc}/builddir.txt"], loc)
   # os.system(f"defects4j export -p dir.bin.classes -w {loc} -o {loc}/builddir.txt")
   run_cmd(["defects4j", "export", "-p", "cp.test", "-o", os.path.join(loc, "cp.txt")], loc)
+  run_cmd(["defects4j", "export", "-p", "classes.modified", "-o", f"{loc}/modified.txt"], loc)
+  run_cmd(["defects4j", "export", "-p", "dir.src.classes", "-o", f"{loc}/srcdir.txt"], loc)
   with open(f"{loc}/builddir.txt", 'r') as f:
     builddir = f.read().strip()
     tmp_dir = os.path.join(loc, builddir)
@@ -326,12 +328,14 @@ def get_groundtruth(bugid: str, d4j_dir: str) -> list:
     lines = f.readlines()
     file = ""
     line_nums = list()
+    not_found = True
     for line in lines:
       line = line.strip()
       if len(line) == 0:
         continue
       tmp_bugid = line.split("@")[0]
       if tmp_bugid == proj + "_" + bid:
+        not_found = False
         file = line.split("@")[1]
         for line_num in line.split("@")[2].split(","):
           if len(line_num) == 0:
@@ -342,6 +346,14 @@ def get_groundtruth(bugid: str, d4j_dir: str) -> list:
             line_nums.append(int(line_num))
         break
     line_set = set()
+    if not_found:
+      with open(f"{d4j_dir}/modified.txt", "r") as f, open(f"{d4j_dir}/srcdir.txt") as sd:
+        classname = f.read().strip()
+        source_dir = sd.read().strip()
+        if '$' in classname:
+          classname = classname[:classname.index('$')]
+        file = source_dir + "/" + "/".join(classname.split(".")) + ".java"
+      return file, line_set
     final_line_nums = list()
     if len(line_nums) > 1:
       line_nums.sort()
