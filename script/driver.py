@@ -702,7 +702,7 @@ def main(tool: str, patchdir: str) -> None:
       if os.path.isdir(dir):
         result = prepare(basedir, os.path.join(dir, f"{bugid}.json"), tool)
         cmd_list.extend(result)
-    pool = mp.Pool(processes=32)
+    pool = mp.Pool(processes=96)
     pool.map(execute, cmd_list)
     pool.close()
     pool.join()

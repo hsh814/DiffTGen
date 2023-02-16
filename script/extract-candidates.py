@@ -69,6 +69,17 @@ def get_info_recoder(sw: dict, correct_patches: List[str], plau_list: List[str])
           plau_patches.append(patch_info)
   return result
 
+def get_bugids(filename: str) -> List[str]:
+    l = list()
+    if not os.path.exists(filename):
+        return l
+    with open(filename, "r") as f:
+        for line in f.readlines():
+            line = line.strip()
+            if line == "" or line.startswith("#"):
+                continue
+            l.append(line.split(",")[0])
+    return l
 
 def get_correct_patch_recoder(correct_patch_file: str) -> List[str]:
   with open(correct_patch_file, "r") as cf:
@@ -84,7 +95,8 @@ def get_correct_patch_recoder(correct_patch_file: str) -> List[str]:
     return result
 
 def collect_plausible_recoder(rootdir: str, outdir: str) -> None:
-  for bugid in os.listdir(os.path.join(rootdir, "d4j")):
+  bugids = get_bugids(f"{rootdir}/data/bugid2.txt")
+  for bugid in bugids:
     # os.makedirs(f"{outdir}/{bugid}", exist_ok=True)
     switch_info_file = os.path.join(rootdir, "d4j", bugid, "switch-info.json")
     sim_file = os.path.join(rootdir, "sim", bugid, f"{bugid}-sim.json")
