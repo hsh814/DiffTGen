@@ -40,9 +40,13 @@ def get_method_range(filename: str, lineid: int, contents: str) -> dict:
     if len(target) == 0:
       with open(filename, "r", encoding="utf-8", errors="ignore") as f:
         target = f.read()
-    tokens = javalang.tokenizer.tokenize(target)
-    parser = javalang.parser.Parser(tokens)
-    tree = parser.parse()
+    try:
+      tokens = javalang.tokenizer.tokenize(target)
+      parser = javalang.parser.Parser(tokens)
+      tree = parser.parse()
+    except Exception as e:
+      print(e)
+      return { "function": "0no_function_found", "begin": lineid, "end": lineid }
     for path, node in tree.filter(javalang.tree.MethodDeclaration):
         if node.position is None:
             continue
@@ -412,7 +416,8 @@ def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
         "-inputfpath", delta_file, "-oracleinputfpath", oracle_file,
         "-stopifoverfittingfound", "-evosuitetimeout", "60", "-evosuitetrials", "30"
       ]
-      cmd_list.append(cmd)
+      if len(deltas) > 0:
+        cmd_list.append(cmd)
     return cmd_list
 
 def get_src_path(project):
@@ -462,13 +467,16 @@ def decompile(path:str,target_file_path:str):
     path: path to the class file (e.g. target/classes/.../foo.class)
     target_file_path: path to the decompiled file (e.g. src/main/java/.../foo.java)
   """
+  print(f'decompile {path} to {target_file_path}...')
   target_dirs=target_file_path.split('/')[:-1]
-  target_dir=os.path.join(*target_dirs)
-  result=subprocess.run(['java','-jar','/root/project/intellij-community/plugins/java-decompiler/engine/build/libs/fernflower.jar',
+  target_dir='/'+os.path.join(*target_dirs)
+  result=subprocess.run(['/opt/jdk-11/bin/java','-jar','/root/project/intellij-community/plugins/java-decompiler/engine/build/libs/fernflower.jar',
                       path,f'{target_dir}'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
   if result.returncode!=0:
     print(result.stdout.decode('utf-8'),file=sys.stderr)
     return False
+
+  print(result.stdout.decode('utf-8'))
   
   decompiled_file=path.split('/')[-1].replace('.class','.java')  # mutant-N.java
   if decompiled_file.startswith('mutant-'):
@@ -492,7 +500,14 @@ def prepare_prapr(project:str,basedir: str, conf_file: str, tool: str) -> List[L
     correct_file, line_nums = get_groundtruth(bugid, d4j_dir)
     correct_file = os.path.join(d4j_fixed_dir, correct_file)  # Fixed
     correct_original_file = os.path.join(d4j_dir, correct_file)  # Buggy
-    decompile(os.path.join(d4j_dir,get_target_path(bugid),correct_file.replace('.java','.class')),correct_original_file)
+    # Save decompiled results
+    path_index=correct_file.find(get_src_path(bugid))
+    correct_file_relation_path=correct_file[path_index+len(get_src_path(bugid)):]
+    correct_file_decompile = os.path.join(d4j_fixed_dir,
+              get_target_path(bugid)[1:],
+              correct_file_relation_path)
+    decompile(correct_file.replace('.java','.class').replace(get_src_path(bugid),get_target_path(bugid)),
+              correct_file_decompile)
     
     print(f"Correct file: {correct_file}")
     # correct_original_file_ = os.path.join(d4j_dir, correct[0])
@@ -502,14 +517,26 @@ def prepare_prapr(project:str,basedir: str, conf_file: str, tool: str) -> List[L
     # oracle_method_range = get_method_range(correct_original_file, oracle_delta[0])
     for plau in plau_patch_list:
       print("===============================================")
-      original_file = f'{d4j_dir}/{get_src_path(bugid)}/{plau["file"]}'
+      original_file = f'{d4j_fixed_dir}/{get_src_path(bugid)}/{plau["file"]}'.replace('//','/')
       id = plau["patch_id"]
       location = plau["patched_source_file"]
       if os.path.isdir(os.path.join(ROOTDIR, "out", tool,bugid+'_'+id)):
         continue
       print(f"Patch {id}")
       patched_file = location
-      deltas = get_diff(original_file, patched_file, correct_original_file, correct_file, line_nums)
+      if os.path.abspath(original_file) == os.path.abspath(correct_file):
+        # Fixed file == Patched file
+        deltas = get_diff("", patched_file, "", correct_file_decompile, line_nums)
+      else:
+        # Fixed file != Patched file
+        # Decompile original of fixed file
+        original_file_decompile = os.path.join(d4j_dir,get_target_path(bugid)[1:],correct_file_relation_path)
+        decompile(os.path.join(d4j_dir,get_target_path(bugid)[1:],correct_file_relation_path.replace('.java','.class')),original_file_decompile)
+        # Decompile original of patched file
+        original_patched_file_decompile = os.path.join(d4j_dir,get_target_path(bugid)[1:],plau['file'])
+        decompile(os.path.join(d4j_dir,get_target_path(bugid)[1:],plau['file'].replace('.java','.class')),original_patched_file_decompile)
+        deltas = get_diff(original_file_decompile, patched_file, correct_original_file, correct_file, line_nums)
+      # deltas = get_diff(original_file, patched_file, correct_original_file, correct_file, line_nums)
       delta_file = os.path.join(os.path.dirname(patched_file), "delta.txt")
       oracle_file = os.path.join(os.path.dirname(patched_file), "oracle.txt")
       write_deltas(deltas, delta_file, oracle_file)
@@ -633,6 +660,7 @@ def patch_to_str(patch) -> str:
 def sort_bugids(bugids: List[str]) -> List[str]:
     proj_dict = dict()
     for bugid in bugids:
+        if bugid in ['bin','closure-repo','installation']: continue  # Skip PraPR files
         splitted = bugid.split("-")
         if len(splitted)==1:
             splitted=bugid.split('_')
@@ -651,18 +679,33 @@ def sort_bugids(bugids: List[str]) -> List[str]:
     return result
 
 def main(tool: str, patchdir: str) -> None:
-  basedir = os.path.abspath(patchdir)
-  cmd_list = list()
-  for bugid in sort_bugids(os.listdir(basedir)):
-    dir = os.path.join(basedir, bugid)
-    if os.path.isdir(dir):
-      result = prepare(basedir, os.path.join(dir, f"{bugid}.json"), tool)
-      cmd_list.extend(result)
-  pool = mp.Pool(processes=32)
-  pool.map(execute, cmd_list)
-  pool.close()
-  pool.join()
+  if tool=='prapr':
+    basedir = os.path.abspath(patchdir)
+    cmd_list = list()
+    for bugid in sort_bugids(os.listdir(basedir)):
+      if 'Closure' in bugid: continue
+      dir = os.path.join(basedir, bugid,'target','prapr-reports')
+      dir=dir+'/'+os.listdir(dir)[0]
+      if os.path.isdir(dir):
+        result = prepare_prapr(bugid,basedir, os.path.join(dir, f"valid-patches.json"), tool)
+        cmd_list.extend(result)
 
+    pool = mp.Pool(processes=32)
+    pool.map(execute, cmd_list)
+    pool.close()
+    pool.join()
+  else:
+    basedir = os.path.abspath(patchdir)
+    cmd_list = list()
+    for bugid in sort_bugids(os.listdir(basedir)):
+      dir = os.path.join(basedir, bugid)
+      if os.path.isdir(dir):
+        result = prepare(basedir, os.path.join(dir, f"{bugid}.json"), tool)
+        cmd_list.extend(result)
+    pool = mp.Pool(processes=32)
+    pool.map(execute, cmd_list)
+    pool.close()
+    pool.join()
 
 if __name__ == "__main__":
   if len(sys.argv) < 3:
