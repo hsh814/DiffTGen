@@ -49,6 +49,9 @@ public class TestClassGenerator
 	arg_list.add("-class"); arg_list.add(target_full_class_name);
 	arg_list.add("-Dassertions=false");
 	arg_list.add("-Dsearch_budget=" + evosuite_timeout);
+	arg_list.add("-Dmax_stalled_threads=1");
+	arg_list.add("-Dmax_started_threads=2");
+
 
 	String script_fctnt = "#!/bin/bash";
 	//script_fctnt += "\n\nexport PATH=/pro/java/linux/jdk1.8.0/bin:$PATH";
