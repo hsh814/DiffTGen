@@ -213,7 +213,8 @@ def delta_to_str(delta: list, patch_diff: list, original_contents, patched_conte
 
 def get_diff(file_original: str, file_patched: str, file_original_oracle: str, file_patched_oracle: str, line_nums: list) -> None:
   delta = list()
-  if file_original == file_original_oracle:
+  print(f"fo: {file_original}, fp: {file_patched}, co: {file_original_oracle}, cp: {file_patched_oracle}")
+  if os.path.abspath(file_original) == os.path.abspath(file_original_oracle):
     delta = get_diff_lines(file_patched_oracle, file_patched)
   else:
     print("Change different files")
@@ -392,8 +393,8 @@ def prepare(basedir: str, conf_file: str, tool: str) -> List[List[str]]:
     init_d4j(bugid, d4j_dir, False)
     init_d4j(bugid, d4j_fixed_dir, True)
     correct_file, line_nums = get_groundtruth(bugid, d4j_dir)
-    correct_file = os.path.join(d4j_fixed_dir, correct_file)
     correct_original_file = os.path.join(d4j_dir, correct_file)
+    correct_file = os.path.join(d4j_fixed_dir, correct_file)
     print(f"Correct file: {correct_file}")
     # correct_original_file_ = os.path.join(d4j_dir, correct[0])
     # correct_file = os.path.join(d4j_fixed_dir, correct[0])
