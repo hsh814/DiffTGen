@@ -348,7 +348,7 @@ def get_groundtruth(bugid: str, d4j_dir: str) -> list:
     line_set = set()
     if not_found:
       with open(f"{d4j_dir}/modified.txt", "r") as f, open(f"{d4j_dir}/srcdir.txt") as sd:
-        classname = f.read().strip()
+        classname = f.readlines()[0].strip()
         source_dir = sd.read().strip()
         if '$' in classname:
           classname = classname[:classname.index('$')]
